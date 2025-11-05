@@ -1,0 +1,19 @@
+{
+  "name": "portal-productos-chat",
+  "private": true,
+  "workspaces": [
+    "backend/api",
+    "backend/gateway",
+    "frontend"
+  ],
+  "scripts": {
+    "postinstall": "npm run build -ws --if-present=false",
+    "dev": "concurrently -n API,GW,WEB -c green,yellow,cyan \"npm -w backend/api run start:dev\" \"npm -w backend/gateway run start:dev\" \"npm -w frontend run dev\"",
+    "start": "concurrently -n API,GW,WEB -c green,yellow,cyan \"npm -w backend/api run start:prod\" \"npm -w backend/gateway run start:prod\" \"npm -w frontend run preview\"",
+    "lint": "npm -ws run lint",
+    "build": "npm -ws run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
