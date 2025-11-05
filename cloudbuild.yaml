@@ -1,0 +1,81 @@
+substitutions:
+  _SERVICE_NAME: "api-template"
+  _REGION: "europe-west1"
+  _REPO_NAME: "api-template"
+  _IMAGE_NAME: "api"
+
+  # App config
+  _NODE_ENV: "development"
+  _LOG_LEVEL: "info"
+  _COOKIE_DOMAIN: "localhost"
+
+  # JWT
+  _JWT_ACCESS_SECRET: "changeme-access"
+  _JWT_REFRESH_SECRET: "changeme-refresh"
+  _JWT_ACCESS_TTL: "900s"
+  _JWT_REFRESH_TTL: "30d"
+
+  # Firestore
+  _FIRESTORE_PROJECT_ID: "$PROJECT_ID"
+  _FIRESTORE_DATABASE_ID: "(default)"
+
+steps:
+  - id: "build"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:$COMMIT_SHA",
+        "-t",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:latest",
+        "."
+      ]
+    waitFor: ["-"]
+
+  - id: "pre-pull-cloudsdk"
+    name: "gcr.io/cloud-builders/docker"
+    args: ["pull", "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"]
+    waitFor: ["-"]
+
+  - id: "push-sha"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:$COMMIT_SHA"
+      ]
+    waitFor: ["build"]
+
+  - id: "push-latest"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:latest"
+      ]
+    waitFor: ["build"]
+
+  - id: "deploy"
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    entrypoint: gcloud
+    args:
+      [
+        "run","deploy","${_SERVICE_NAME}-${_NODE_ENV}",
+        "--image","${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:$COMMIT_SHA",
+        "--region","${_REGION}",
+        "--platform","managed",
+        "--allow-unauthenticated",
+        "--service-account","${_RUNTIME_SA}",
+        "--quiet",
+        "--update-env-vars",
+        "NODE_ENV=${_NODE_ENV},LOG_LEVEL=${_LOG_LEVEL},JWT_ACCESS_SECRET=${_JWT_ACCESS_SECRET},JWT_REFRESH_SECRET=${_JWT_REFRESH_SECRET},JWT_ACCESS_TTL=${_JWT_ACCESS_TTL},JWT_REFRESH_TTL=${_JWT_REFRESH_TTL},COOKIE_DOMAIN=${_COOKIE_DOMAIN},FIRESTORE_DATABASE_ID=${_FIRESTORE_DATABASE_ID},FIRESTORE_PROJECT_ID=${_FIRESTORE_PROJECT_ID}"
+      ]
+    waitFor: ["push-sha","push-latest","pre-pull-cloudsdk"]
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+images:
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:$COMMIT_SHA"
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:latest"
