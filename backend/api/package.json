@@ -18,7 +18,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed:admin": "ts-node -r tsconfig-paths/register seeds/seed-admin.ts"
+    "seed:admin": "ts-node -r tsconfig-paths/register seeds/seed-admin.ts",
+    "seed:products": "ts-node -r tsconfig-paths/register seeds/seed-products.ts"
   },
   "dependencies": {
     "@google-cloud/firestore": "^8.0.0",

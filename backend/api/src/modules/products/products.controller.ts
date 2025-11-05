@@ -9,15 +9,12 @@ import {
   Post,
   Put,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Role } from '../../common/enums/role.enum';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { MinRole } from '../../common/decorators/role.decorator';
+import { RoleLevel } from '../../common/enums/role.enum';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 import {
   ApiCookieAuth,
@@ -63,20 +60,19 @@ export class ProductsController {
     return this.products.getById(id);
   }
 
-  @ApiCookieAuth('at')
+  @ApiCookieAuth('accessToken')
   @ApiOperation({ summary: 'Create product (admin only)' })
   @ApiBody({ type: CreateProductDto })
   @ApiCreatedResponse({ description: 'Product created' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiForbiddenResponse({ description: 'Forbidden' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @MinRole(RoleLevel.ADMIN)
   @Post()
   async create(@Body() dto: CreateProductDto, @CurrentUser() user: any) {
     return this.products.create(dto, user?.sub);
   }
 
-  @ApiCookieAuth('at')
+  @ApiCookieAuth('accessToken')
   @ApiOperation({ summary: 'Update product (admin only)' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateProductDto })
@@ -84,22 +80,20 @@ export class ProductsController {
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiForbiddenResponse({ description: 'Forbidden' })
   @ApiNotFoundResponse({ description: 'Product not found' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @MinRole(RoleLevel.ADMIN)
   @Put(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
     return this.products.update(id, dto);
   }
 
-  @ApiCookieAuth('at')
+  @ApiCookieAuth('accessToken')
   @ApiOperation({ summary: 'Delete product (admin only)' })
   @ApiParam({ name: 'id', type: String })
   @ApiOkResponse({ description: 'Product deleted' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiForbiddenResponse({ description: 'Forbidden' })
   @ApiNotFoundResponse({ description: 'Product not found' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @MinRole(RoleLevel.ADMIN)
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.products.remove(id);

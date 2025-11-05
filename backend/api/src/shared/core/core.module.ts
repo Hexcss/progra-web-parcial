@@ -22,6 +22,7 @@ import { UsersModule } from '../../modules/users/users.module';
 import { AuthModule } from '../../modules/auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppLogger } from 'src/common/logger/logger.service';
+import { AuthorizationGuard } from 'src/common/guards/authorization.guard';
 
 @Global()
 @Module({
@@ -56,6 +57,7 @@ import { AppLogger } from 'src/common/logger/logger.service';
     },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthenticationGuard },
+    { provide: APP_GUARD, useClass: AuthorizationGuard },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
