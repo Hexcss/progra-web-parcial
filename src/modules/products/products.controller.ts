@@ -1,15 +1,4 @@
-// src/modules/products/products.controller.ts
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseIntPipe,
-  Post,
-  Put,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -35,9 +24,10 @@ import {
 export class ProductsController {
   constructor(private readonly products: ProductsService) {}
 
-  @ApiOperation({ summary: 'List products' })
+  @ApiOperation({ summary: 'List products with avgRating, reviewCount, activeDiscount' })
   @ApiQuery({ name: 'q', required: false, type: String })
   @ApiQuery({ name: 'category', required: false, type: String })
+  @ApiQuery({ name: 'categoryId', required: false, type: String })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiOkResponse({ description: 'List of products' })
@@ -45,13 +35,22 @@ export class ProductsController {
   async list(
     @Query('q') q?: string,
     @Query('category') category?: string,
+    @Query('categoryId') categoryId?: string,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('page', new ParseIntPipe({ optional: true })) page?: number,
   ) {
-    return this.products.list({ q, category, limit, page });
+    return this.products.list({ q, category, categoryId, limit, page });
   }
 
-  @ApiOperation({ summary: 'Get product by id' })
+  @ApiOperation({ summary: 'Get top N products by rating' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Cantidad a devolver, por defecto 10' })
+  @ApiOkResponse({ description: 'Top productos por valoración' })
+  @Get('top')
+  async top(@Query('limit', new ParseIntPipe({ optional: true })) limit?: number) {
+    return this.products.topRated(limit ?? 10);
+  }
+
+  @ApiOperation({ summary: 'Get product by id with avgRating, reviewCount, activeDiscount' })
   @ApiParam({ name: 'id', type: String })
   @ApiOkResponse({ description: 'Product found' })
   @ApiNotFoundResponse({ description: 'Product not found' })
