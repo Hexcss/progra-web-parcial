@@ -1,10 +1,9 @@
-// src/views/market/components/Sections/Hero/HeroParticles.tsx
 import { memo, useEffect, useRef, useState } from "react";
 import Particles, { initParticlesEngine } from "@tsparticles/react";
 import type { Engine, ISourceOptions } from "@tsparticles/engine";
 import { loadSlim } from "@tsparticles/slim";
 
-export const HeroParticles = memo(function HeroParticles() {
+export const MarketParticles = memo(function MarketParticles() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     initParticlesEngine(async (engine: Engine) => {
@@ -31,5 +30,5 @@ export const HeroParticles = memo(function HeroParticles() {
     },
   });
   if (!ready) return null;
-  return <Particles id="heroParticles" options={optionsRef.current} />;
+  return <Particles id="MarketParticles" options={optionsRef.current} />;
 });
