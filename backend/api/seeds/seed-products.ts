@@ -3,30 +3,68 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { getModelToken } from '@nestjs/mongoose';
 import type { Model, Types } from 'mongoose';
-import { Product, ProductDocument } from 'src/modules/products/entities/product.entity';
-import { UsersService } from 'src/modules/users/users.service';
 import { AppModule } from 'src/app.module';
+import { UsersService } from 'src/modules/users/users.service';
+import { Role } from 'src/common/enums/role.enum';
+import { Product } from 'src/modules/products/entities/product.entity';
+import { Category } from 'src/modules/categories/entities/category.entity';
+import { Review } from 'src/modules/reviews/entities/review.entity';
+import { Discount } from 'src/modules/discounts/entities/discount.entity';
 
-
-type SeedProduct = Omit<Product, '_id' | 'createdBy'> & { createdBy?: Types.ObjectId };
+type SeedProduct = Omit<Product, '_id' | 'createdBy' | 'categoryId'> & { createdBy?: Types.ObjectId; categoryId?: Types.ObjectId };
 
 async function run() {
   const app = await NestFactory.createApplicationContext(AppModule);
 
   try {
     const users = app.get(UsersService);
-    const productModel = app.get<Model<ProductDocument>>(getModelToken(Product.name));
+    const productModel = app.get<Model<Product>>(getModelToken(Product.name));
+    const categoryModel = app.get<Model<Category>>(getModelToken(Category.name));
+    const reviewModel = app.get<Model<Review>>(getModelToken(Review.name));
+    const discountModel = app.get<Model<Discount>>(getModelToken(Discount.name));
 
     const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@store.local';
     const admin = await users.findByEmail(adminEmail);
     if (!admin) {
-      // eslint-disable-next-line no-console
       console.error(`Admin user with email "${adminEmail}" not found. Seed the admin first.`);
       process.exitCode = 1;
       return;
     }
-
     const adminId = new (require('mongoose').Types.ObjectId)(String(admin._id));
+
+    const ensureUser = async (email: string, displayName: string) => {
+      const existing = await users.findByEmail(email);
+      if (existing) return existing;
+      return users.createUser({ email, password: 'user123', displayName }, Role.USER);
+    };
+
+    const userAlice = await ensureUser('alice@store.local', 'Alice');
+    const userBob = await ensureUser('bob@store.local', 'Bob');
+    const userCarol = await ensureUser('carol@store.local', 'Carol');
+
+    const categorySeeds: Array<{ name: string; icon: string }> = [
+      { name: 'Laptops', icon: 'laptop' },
+      { name: 'Monitors', icon: 'monitor' },
+      { name: 'Peripherals', icon: 'keyboard' },
+      { name: 'Audio', icon: 'headphones' },
+      { name: 'Accessories', icon: 'cable' },
+      { name: 'Storage', icon: 'hard-drive' },
+      { name: 'Networking', icon: 'wifi' },
+      { name: 'Power', icon: 'battery-charging' },
+      { name: 'Wearables', icon: 'watch' },
+    ];
+
+
+    const categoryMap = new Map<string, Types.ObjectId>();
+    for (const c of categorySeeds) {
+      const found = await categoryModel.findOne({ name: c.name }).exec();
+      if (found) {
+        categoryMap.set(c.name, found._id as Types.ObjectId);
+      } else {
+        const created = await categoryModel.create({ name: c.name, icon: c.icon });
+        categoryMap.set(c.name, created._id as Types.ObjectId);
+      }
+    }
 
     const products: SeedProduct[] = [
       {
@@ -176,23 +214,97 @@ async function run() {
     ];
 
     let createdCount = 0;
+    const productDocs: Array<{ _id: Types.ObjectId; name: string; category: string }> = [];
     for (const p of products) {
       const exists = await productModel.findOne({ name: p.name }).lean().exec();
+      const categoryId = categoryMap.get(p.category ?? '') || null;
       if (exists) {
-        // eslint-disable-next-line no-console
+        await productModel.updateOne(
+          { _id: exists._id },
+          { $set: { categoryId: categoryId ?? undefined, createdBy: exists['createdBy'] ?? adminId } }
+        ).exec();
+        productDocs.push({ _id: exists._id as Types.ObjectId, name: exists.name, category: exists['category'] ?? '' });
         console.log(`Skip (exists): ${p.name}`);
         continue;
       }
-      await productModel.create({ ...p, createdBy: adminId });
+      const created = await productModel.create({ ...p, categoryId: categoryId ?? undefined, createdBy: adminId });
+      productDocs.push({ _id: created._id as Types.ObjectId, name: created.name, category: created.category ?? '' });
       createdCount++;
-      // eslint-disable-next-line no-console
       console.log(`Created: ${p.name}`);
     }
-
-    // eslint-disable-next-line no-console
     console.log(`Done. Inserted ${createdCount} new products.`);
+
+    const reviewSeeds: Array<{
+      productName: string;
+      userEmail: string;
+      score: number;
+      comment: string;
+    }> = [
+        { productName: 'Ultrabook Pro 14', userEmail: 'alice@store.local', score: 4.6, comment: 'Ligero y muy rápido para trabajo diario.' },
+        { productName: 'Ultrabook Pro 14', userEmail: 'bob@store.local', score: 4.2, comment: 'Excelente batería, teclado cómodo.' },
+        { productName: 'Gaming Laptop X15', userEmail: 'carol@store.local', score: 4.8, comment: 'FPS altísimos y buena refrigeración.' },
+        { productName: '4K IPS Monitor 27"', userEmail: 'alice@store.local', score: 4.4, comment: 'Colores precisos y USB-C útil.' },
+        { productName: 'Noise-Cancelling Headphones', userEmail: 'bob@store.local', score: 4.7, comment: 'ANC sólido y sonido cálido.' },
+        { productName: 'Bluetooth Speaker Mini', userEmail: 'carol@store.local', score: 4.1, comment: 'Portátil y resistente al agua.' },
+        { productName: '1TB NVMe SSD Gen4', userEmail: 'alice@store.local', score: 4.9, comment: 'Velocidades impresionantes.' },
+      ];
+
+    for (const r of reviewSeeds) {
+      const product = productDocs.find(p => p.name === r.productName);
+      if (!product) continue;
+      const user = await users.findByEmail(r.userEmail);
+      if (!user) continue;
+      const exists = await reviewModel.findOne({
+        productId: product._id,
+        userId: new (require('mongoose').Types.ObjectId)(String(user._id)),
+        comment: r.comment,
+      }).lean().exec();
+      if (exists) {
+        console.log(`Skip review (exists): ${r.productName} by ${r.userEmail}`);
+        continue;
+      }
+      await reviewModel.create({
+        productId: product._id,
+        userId: new (require('mongoose').Types.ObjectId)(String(user._id)),
+        score: r.score,
+        comment: r.comment,
+      });
+      console.log(`Created review: ${r.productName} by ${r.userEmail}`);
+    }
+
+    const now = new Date();
+    const in3 = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const in10 = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
+
+    const discountSeeds: Array<{ productName: string; percent: number; start: Date; end: Date }> = [
+      { productName: 'Gaming Laptop X15', percent: 12, start: now, end: in10 },
+      { productName: 'Noise-Cancelling Headphones', percent: 20, start: now, end: in3 },
+    ];
+
+    for (const d of discountSeeds) {
+      const product = productDocs.find(p => p.name === d.productName);
+      if (!product) continue;
+      const exists = await discountModel.findOne({
+        productId: product._id,
+        discountPercent: d.percent,
+        startDate: { $lte: d.end },
+        endDate: { $gte: d.start },
+      }).lean().exec();
+      if (exists) {
+        console.log(`Skip discount (overlap exists): ${d.productName} - ${d.percent}%`);
+        continue;
+      }
+      await discountModel.create({
+        productId: product._id,
+        discountPercent: d.percent,
+        startDate: d.start,
+        endDate: d.end,
+      });
+      console.log(`Created discount: ${d.productName} - ${d.percent}%`);
+    }
+
+    console.log('Seed completed.');
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error(err);
     process.exitCode = 1;
   } finally {

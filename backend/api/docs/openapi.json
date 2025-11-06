@@ -570,6 +570,164 @@
         ]
       }
     },
+    "/categories": {
+      "get": {
+        "operationId": "CategoriesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "List of categories"
+          }
+        },
+        "summary": "List categories with product count",
+        "tags": [
+          "categories"
+        ]
+      },
+      "post": {
+        "operationId": "CategoriesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Category created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "accessToken": []
+          }
+        ],
+        "summary": "Create category (admin only)",
+        "tags": [
+          "categories"
+        ]
+      }
+    },
+    "/categories/{id}": {
+      "get": {
+        "operationId": "CategoriesController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category found"
+          },
+          "404": {
+            "description": "Category not found"
+          }
+        },
+        "summary": "Get category by id with product count",
+        "tags": [
+          "categories"
+        ]
+      },
+      "put": {
+        "operationId": "CategoriesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Category updated"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Category not found"
+          }
+        },
+        "security": [
+          {
+            "accessToken": []
+          }
+        ],
+        "summary": "Update category (admin only)",
+        "tags": [
+          "categories"
+        ]
+      },
+      "delete": {
+        "operationId": "CategoriesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Category not found"
+          }
+        },
+        "security": [
+          {
+            "accessToken": []
+          }
+        ],
+        "summary": "Delete category (admin only)",
+        "tags": [
+          "categories"
+        ]
+      }
+    },
     "/products": {
       "get": {
         "operationId": "ProductsController_list",
@@ -584,6 +742,14 @@
           },
           {
             "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoryId",
             "required": false,
             "in": "query",
             "schema": {
@@ -612,7 +778,7 @@
             "description": "List of products"
           }
         },
-        "summary": "List products",
+        "summary": "List products with avgRating, reviewCount, activeDiscount",
         "tags": [
           "products"
         ]
@@ -652,6 +818,31 @@
         ]
       }
     },
+    "/products/top": {
+      "get": {
+        "operationId": "ProductsController_top",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Cantidad a devolver, por defecto 10",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Top productos por valoración"
+          }
+        },
+        "summary": "Get top N products by rating",
+        "tags": [
+          "products"
+        ]
+      }
+    },
     "/products/{id}": {
       "get": {
         "operationId": "ProductsController_get",
@@ -673,7 +864,7 @@
             "description": "Product not found"
           }
         },
-        "summary": "Get product by id",
+        "summary": "Get product by id with avgRating, reviewCount, activeDiscount",
         "tags": [
           "products"
         ]
@@ -758,6 +949,312 @@
         "summary": "Delete product (admin only)",
         "tags": [
           "products"
+        ]
+      }
+    },
+    "/reviews": {
+      "get": {
+        "operationId": "ReviewsController_list",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of reviews"
+          }
+        },
+        "summary": "List reviews by product",
+        "tags": [
+          "reviews"
+        ]
+      },
+      "post": {
+        "operationId": "ReviewsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Review created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "accessToken": []
+          }
+        ],
+        "summary": "Create review (authenticated users)",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/reviews/{id}": {
+      "put": {
+        "operationId": "ReviewsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Review updated"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Review not found"
+          }
+        },
+        "security": [
+          {
+            "accessToken": []
+          }
+        ],
+        "summary": "Update review (admin only)",
+        "tags": [
+          "reviews"
+        ]
+      },
+      "delete": {
+        "operationId": "ReviewsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Review not found"
+          }
+        },
+        "security": [
+          {
+            "accessToken": []
+          }
+        ],
+        "summary": "Delete review (admin only)",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/discounts": {
+      "get": {
+        "operationId": "DiscountsController_list",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of discounts"
+          }
+        },
+        "summary": "List discounts",
+        "tags": [
+          "discounts"
+        ]
+      },
+      "post": {
+        "operationId": "DiscountsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDiscountDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Discount created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "accessToken": []
+          }
+        ],
+        "summary": "Create discount (admin only)",
+        "tags": [
+          "discounts"
+        ]
+      }
+    },
+    "/discounts/{id}": {
+      "get": {
+        "operationId": "DiscountsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Discount found"
+          },
+          "404": {
+            "description": "Discount not found"
+          }
+        },
+        "summary": "Get discount by id",
+        "tags": [
+          "discounts"
+        ]
+      },
+      "put": {
+        "operationId": "DiscountsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDiscountDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Discount updated"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Discount not found"
+          }
+        },
+        "security": [
+          {
+            "accessToken": []
+          }
+        ],
+        "summary": "Update discount (admin only)",
+        "tags": [
+          "discounts"
+        ]
+      },
+      "delete": {
+        "operationId": "DiscountsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Discount deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Discount not found"
+          }
+        },
+        "security": [
+          {
+            "accessToken": []
+          }
+        ],
+        "summary": "Delete discount (admin only)",
+        "tags": [
+          "discounts"
         ]
       }
     }
@@ -878,48 +1375,54 @@
           "password"
         ]
       },
-      "CreateProductDto": {
+      "CreateCategoryDto": {
         "type": "object",
         "properties": {
           "name": {
             "type": "string",
-            "description": "Name of the product",
-            "example": "Wireless Headphones"
+            "example": "Laptops"
+          },
+          "icon": {
+            "type": "string",
+            "example": "laptop"
+          }
+        },
+        "required": [
+          "name",
+          "icon"
+        ]
+      },
+      "UpdateCategoryDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateProductDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
           },
           "description": {
-            "type": "string",
-            "description": "Detailed description of the product",
-            "example": "Noise-cancelling over-ear Bluetooth headphones."
+            "type": "string"
           },
           "price": {
             "type": "number",
-            "description": "Price of the product (must be non-negative)",
-            "example": 129.99,
             "minimum": 0
           },
           "stock": {
             "type": "number",
-            "description": "Stock quantity available",
-            "example": 50,
             "minimum": 0
           },
           "imageUrl": {
-            "type": "string",
-            "description": "Image URL of the product",
-            "example": "https://cdn.example.com/images/headphones.jpg"
+            "type": "string"
           },
           "category": {
-            "type": "string",
-            "description": "Category of the product",
-            "example": "Electronics"
+            "type": "string"
+          },
+          "categoryId": {
+            "type": "string"
           },
           "tags": {
-            "description": "List of tags for filtering or search",
-            "example": [
-              "wireless",
-              "audio",
-              "bluetooth"
-            ],
             "type": "array",
             "items": {
               "type": "string"
@@ -933,6 +1436,59 @@
         ]
       },
       "UpdateProductDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateReviewDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5,
+            "example": 4.5
+          },
+          "comment": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "productId",
+          "score"
+        ]
+      },
+      "UpdateReviewDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateDiscountDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string"
+          },
+          "discountPercent": {
+            "type": "number",
+            "example": 15
+          },
+          "startDate": {
+            "type": "string"
+          },
+          "endDate": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "productId",
+          "discountPercent",
+          "startDate",
+          "endDate"
+        ]
+      },
+      "UpdateDiscountDto": {
         "type": "object",
         "properties": {}
       }

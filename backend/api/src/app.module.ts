@@ -9,6 +9,9 @@ import { HealthModule } from './modules/health/health.module';
 import { ProductsModule } from './modules/products/products.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CoreModule } from './shared/core/core.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { DiscountsModule } from './modules/discounts/discount.module';
 
 @Module({
   imports: [
@@ -33,7 +36,10 @@ import { CoreModule } from './shared/core/core.module';
     DatabaseModule,
     AuthModule,
     UsersModule,
+    CategoriesModule,
     ProductsModule,
+    ReviewsModule,
+    DiscountsModule
   ],
   providers: [AppLogger],
   exports: [AppLogger],

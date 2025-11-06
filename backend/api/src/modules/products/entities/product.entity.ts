@@ -5,64 +5,42 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 @Schema({ timestamps: true, collection: 'products' })
 export class Product {
-  @ApiProperty({ description: 'Unique identifier', type: String })
+  @ApiProperty({ type: String })
   _id: any;
 
-  @ApiProperty({
-    description: 'Product name',
-    example: 'Wireless Headphones',
-  })
+  @ApiProperty()
   @Prop({ required: true, index: true })
   name!: string;
 
-  @ApiPropertyOptional({
-    description: 'Detailed description',
-    example: 'Noise-cancelling Bluetooth headphones with long battery life.',
-  })
+  @ApiPropertyOptional()
   @Prop()
   description?: string;
 
-  @ApiProperty({
-    description: 'Product price',
-    example: 129.99,
-    minimum: 0,
-  })
+  @ApiProperty()
   @Prop({ required: true })
   price!: number;
 
-  @ApiProperty({
-    description: 'Units in stock',
-    example: 100,
-  })
+  @ApiProperty()
   @Prop({ required: true, default: 0 })
   stock!: number;
 
-  @ApiPropertyOptional({
-    description: 'Product image URL',
-    example: 'https://cdn.example.com/images/headphones.jpg',
-  })
+  @ApiPropertyOptional()
   @Prop()
   imageUrl?: string;
 
-  @ApiPropertyOptional({
-    description: 'Category name',
-    example: 'Electronics',
-  })
+  @ApiPropertyOptional()
   @Prop({ index: true })
   category?: string;
 
-  @ApiPropertyOptional({
-    description: 'Tags used for product search and filtering',
-    example: ['wireless', 'bluetooth', 'audio'],
-    type: [String],
-  })
+  @ApiPropertyOptional({ type: String })
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Category', index: true })
+  categoryId?: Types.ObjectId;
+
+  @ApiPropertyOptional({ type: [String] })
   @Prop({ type: [String], default: [] })
   tags!: string[];
 
-  @ApiPropertyOptional({
-    description: 'User who created the product',
-    type: String,
-  })
+  @ApiPropertyOptional({ type: String })
   @Prop({ type: SchemaTypes.ObjectId, ref: 'User', index: true })
   createdBy?: Types.ObjectId;
 }
