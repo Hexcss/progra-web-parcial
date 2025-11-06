@@ -1,7 +1,6 @@
 // src/views/market/components/Sections/HeroSection.tsx
 import { Box, Grid, Stack, useMediaQuery, useTheme } from "@mui/material";
 import { motion, type Variants } from "framer-motion";
-import { HeroParticles } from "./Hero/HeroParticles";
 import { HeroCopy } from "./Hero/HeroCopy";
 import { HeroSearch } from "./Hero/HeroSearch";
 import { HeroChips } from "./Hero/HeroChips";
@@ -23,7 +22,6 @@ export default function HeroSection() {
 
   return (
     <Box sx={{ position: "relative", zIndex: 1, py: { xs: 6, sm: 8, md: 10 } }}>
-      <HeroParticles />
       <Box
         component={motion.section}
         initial="hidden"

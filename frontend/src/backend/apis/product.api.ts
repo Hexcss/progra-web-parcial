@@ -1,75 +1,97 @@
-import { baseClient } from "../clients/base.client";
-import { safeApiCall, type SafeApiResult } from "../../utils/functions/safe-api-call.function";
-import { z } from "zod";
-import type { Product } from "../../schemas/product.schema";
+// src/backend/apis/product.api.ts
+import { z } from "zod"
+import { baseClient } from "../clients/base.client"
+import { safeApiCall, type SafeApiResult } from "../../utils/functions/safe-api-call.function"
+import {
+  ZCreateProductPayload,
+  ZUpdateProductPayload,
+  ZPaginatedProducts,
+  ZProductDetail,
+  type CreateProductPayload,
+  type UpdateProductPayload,
+  type PaginatedProducts,
+  type ProductDetail,
+} from "../../schemas/market.schemas"
 
-const ZCreateProduct = z.object({
-  name: z.string().min(1),
-  description: z.string().optional(),
-  price: z.number().nonnegative(),
-  stock: z.number().int().nonnegative(),
-  imageUrl: z.string().optional(),
+export type ProductListParams = {
+  q?: string
+  category?: string
+  categoryId?: string
+  limit?: number
+  page?: number
+  tags?: string[]
+  minPrice?: number
+  maxPrice?: number
+  sort?: "new" | "priceAsc" | "priceDesc" | "rating"
+}
+
+const ZListParams = z.object({
+  q: z.string().optional(),
   category: z.string().optional(),
+  categoryId: z.string().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  page: z.number().int().min(1).optional(),
   tags: z.array(z.string()).optional(),
-});
-
-const ZUpdateProduct = ZCreateProduct.partial();
-
-export type CreateProductInput = z.infer<typeof ZCreateProduct>;
-export type UpdateProductInput = z.infer<typeof ZUpdateProduct>;
-
-export type ProductList = {
-  items: Product[];
-  total: number;
-  page: number;
-  limit: number;
-};
-
-export type ListParams = {
-  q?: string;
-  category?: string;
-  limit?: number;
-  page?: number;
-};
+  minPrice: z.number().min(0).optional(),
+  maxPrice: z.number().min(0).optional(),
+  sort: z.enum(["new", "priceAsc", "priceDesc", "rating"]).optional(),
+})
 
 export const ProductsAPI = {
-  async list(params: ListParams = {}): Promise<SafeApiResult<ProductList>> {
-    return safeApiCall(() =>
-      baseClient.get("/products", { params, withCredentials: true })
-    );
-  },
-
-  async getById(id: string): Promise<SafeApiResult<Product>> {
-    return safeApiCall(() =>
-      baseClient.get(`/products/${encodeURIComponent(id)}`, { withCredentials: true })
-    );
-  },
-
-  async create(input: CreateProductInput): Promise<SafeApiResult<Product>> {
-    const parsed = ZCreateProduct.safeParse(input);
+  async list(params: ProductListParams = {}): Promise<SafeApiResult<PaginatedProducts>> {
+    const parsed = ZListParams.safeParse(params)
     if (!parsed.success) {
-      const m = parsed.error.issues[0]?.message || "Datos inválidos";
-      return { success: false, message: m, status: null, data: null };
+      const m = parsed.error.issues[0]?.message ?? "Parámetros inválidos"
+      return { success: false, message: m, status: null, data: null }
     }
-    return safeApiCall(() =>
-      baseClient.post("/products", parsed.data, { withCredentials: true })
-    );
+    return safeApiCall(async () => {
+      const res = await baseClient.get("/products", { params: parsed.data, withCredentials: true })
+      return ZPaginatedProducts.parse(res.data)
+    })
   },
 
-  async update(id: string, input: UpdateProductInput): Promise<SafeApiResult<Product>> {
-    const parsed = ZUpdateProduct.safeParse(input);
+  async getById(id: string): Promise<SafeApiResult<ProductDetail>> {
+    return safeApiCall(async () => {
+      const res = await baseClient.get(`/products/${encodeURIComponent(id)}`, { withCredentials: true })
+      return ZProductDetail.parse(res.data)
+    })
+  },
+
+  async top(limit = 10): Promise<SafeApiResult<ProductDetail[]>> {
+    return safeApiCall(async () => {
+      const res = await baseClient.get("/products/top", { params: { limit }, withCredentials: true })
+      return z.array(ZProductDetail).parse(res.data)
+    })
+  },
+
+  async create(input: CreateProductPayload): Promise<SafeApiResult<ProductDetail>> {
+    const parsed = ZCreateProductPayload.safeParse(input)
     if (!parsed.success) {
-      const m = parsed.error.issues[0]?.message || "Datos inválidos";
-      return { success: false, message: m, status: null, data: null };
+      const m = parsed.error.issues[0]?.message ?? "Datos inválidos"
+      return { success: false, message: m, status: null, data: null }
     }
-    return safeApiCall(() =>
-      baseClient.put(`/products/${encodeURIComponent(id)}`, parsed.data, { withCredentials: true })
-    );
+    return safeApiCall(async () => {
+      const res = await baseClient.post("/products", parsed.data, { withCredentials: true })
+      return ZProductDetail.parse(res.data)
+    })
+  },
+
+  async update(id: string, input: UpdateProductPayload): Promise<SafeApiResult<ProductDetail>> {
+    const parsed = ZUpdateProductPayload.safeParse(input)
+    if (!parsed.success) {
+      const m = parsed.error.issues[0]?.message ?? "Datos inválidos"
+      return { success: false, message: m, status: null, data: null }
+    }
+    return safeApiCall(async () => {
+      const res = await baseClient.put(`/products/${encodeURIComponent(id)}`, parsed.data, { withCredentials: true })
+      return ZProductDetail.parse(res.data)
+    })
   },
 
   async remove(id: string): Promise<SafeApiResult<{ success: boolean }>> {
-    return safeApiCall(() =>
-      baseClient.delete(`/products/${encodeURIComponent(id)}`, { withCredentials: true })
-    );
+    return safeApiCall(async () => {
+      const res = await baseClient.delete(`/products/${encodeURIComponent(id)}`, { withCredentials: true })
+      return res.data
+    })
   },
-};
+}
