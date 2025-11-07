@@ -1,3 +1,4 @@
+// src/modules/products/products.controller.ts
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -18,6 +19,7 @@ import {
   ApiNotFoundResponse,
   ApiBody,
 } from '@nestjs/swagger';
+import { Public } from 'src/common/decorators/public.decorator';
 
 @ApiTags('products')
 @Controller('products')
@@ -30,22 +32,26 @@ export class ProductsController {
   @ApiQuery({ name: 'categoryId', required: false, type: String })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'sort', required: false, enum: ['new', 'priceAsc', 'priceDesc', 'rating'] })
   @ApiOkResponse({ description: 'List of products' })
   @Get()
+  @Public()
   async list(
     @Query('q') q?: string,
     @Query('category') category?: string,
     @Query('categoryId') categoryId?: string,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('sort') sort?: 'new' | 'priceAsc' | 'priceDesc' | 'rating',
   ) {
-    return this.products.list({ q, category, categoryId, limit, page });
+    return this.products.list({ q, category, categoryId, limit, page, sort });
   }
 
   @ApiOperation({ summary: 'Get top N products by rating' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Cantidad a devolver, por defecto 10' })
   @ApiOkResponse({ description: 'Top productos por valoración' })
   @Get('top')
+  @Public()
   async top(@Query('limit', new ParseIntPipe({ optional: true })) limit?: number) {
     return this.products.topRated(limit ?? 10);
   }
@@ -55,6 +61,7 @@ export class ProductsController {
   @ApiOkResponse({ description: 'Product found' })
   @ApiNotFoundResponse({ description: 'Product not found' })
   @Get(':id')
+  @Public()
   async get(@Param('id') id: string) {
     return this.products.getById(id);
   }

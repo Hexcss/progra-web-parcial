@@ -17,6 +17,7 @@ import { MinRole } from '../../common/decorators/role.decorator';
 import { RoleLevel } from '../../common/enums/role.enum';
 import { CreateDiscountDto } from './dto/create-discount.dto';
 import { UpdateDiscountDto } from './dto/update-discount.dto';
+import { Public } from 'src/common/decorators/public.decorator';
 
 @ApiTags('discounts')
 @Controller('discounts')
@@ -27,6 +28,7 @@ export class DiscountsController {
     @ApiQuery({ name: 'productId', required: false, type: String })
     @ApiOkResponse({ description: 'List of discounts' })
     @Get()
+    @Public()
     async list(@Query('productId') productId?: string) {
         return this.discounts.list(productId);
     }
@@ -36,6 +38,7 @@ export class DiscountsController {
     @ApiOkResponse({ description: 'Discount found' })
     @ApiNotFoundResponse({ description: 'Discount not found' })
     @Get(':id')
+    @Public()
     async get(@Param('id') id: string) {
         return this.discounts.getById(id);
     }
