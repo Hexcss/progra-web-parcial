@@ -6,6 +6,7 @@ import {
     Card,
     CardContent,
     Skeleton,
+    Stack,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -33,14 +34,14 @@ export default function TopProductsSection() {
 
     return (
         <Box sx={{ position: "relative", pt: 6, pb: 8 }}>
-            <Box sx={{ textAlign: "center", mb: 4, px: { xs: 2, md: 3 } }}>
-                <Typography variant="h5" component="h2" fontWeight={800} gutterBottom>
+            <Stack spacing={2} alignItems="center" sx={{ textAlign: "center", mb: 5 }}>
+                <Typography variant="h4" component="h2" fontWeight={800}>
                     Nuestros Productos Estrella
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
                     Explora la selección preferida por nuestra comunidad.
                 </Typography>
-            </Box>
+            </Stack>
 
             <Box
                 sx={{

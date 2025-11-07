@@ -55,10 +55,11 @@ export const ZCategory = z.object({
 })
 export type Category = z.infer<typeof ZCategory>
 
-export const ZCategoryWithCount = ZCategory.extend({
+export const ZCategoryEnriched = ZCategory.extend({
   productCount: z.number().int().nonnegative(),
+  thumbnail: z.string().nullable(),
 })
-export type CategoryWithCount = z.infer<typeof ZCategoryWithCount>
+export type CategoryEnriched = z.infer<typeof ZCategoryEnriched>
 
 export const ZReview = z.object({
   _id: z.string(),

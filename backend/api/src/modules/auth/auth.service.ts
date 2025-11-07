@@ -18,7 +18,7 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    private readonly users: UsersService, // only for register/login
+    private readonly users: UsersService,
     private readonly jwt: JwtService,
     private readonly cfg: ConfigService,
   ) {}

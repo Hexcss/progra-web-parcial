@@ -579,7 +579,7 @@
             "description": "List of categories"
           }
         },
-        "summary": "List categories with product count",
+        "summary": "List categories with product count and thumbnail",
         "tags": [
           "categories"
         ]
@@ -640,7 +640,7 @@
             "description": "Category not found"
           }
         },
-        "summary": "Get category by id with product count",
+        "summary": "Get category by id with product count and thumbnail",
         "tags": [
           "categories"
         ]
@@ -728,6 +728,33 @@
         ]
       }
     },
+    "/categories/{id}/thumbnail": {
+      "get": {
+        "operationId": "CategoriesController_getNewThumbnail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "New thumbnail generated"
+          },
+          "404": {
+            "description": "Category not found"
+          }
+        },
+        "summary": "Get a new random thumbnail for a category",
+        "tags": [
+          "categories"
+        ]
+      }
+    },
     "/products": {
       "get": {
         "operationId": "ProductsController_list",
@@ -770,6 +797,20 @@
             "in": "query",
             "schema": {
               "type": "number"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "new",
+                "priceAsc",
+                "priceDesc",
+                "rating"
+              ],
+              "type": "string"
             }
           }
         ],
@@ -963,6 +1004,30 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "userId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1001,7 +1066,7 @@
             "accessToken": []
           }
         ],
-        "summary": "Create review (authenticated users)",
+        "summary": "Create review (one per product)",
         "tags": [
           "reviews"
         ]
@@ -1049,7 +1114,7 @@
             "accessToken": []
           }
         ],
-        "summary": "Update review (admin only)",
+        "summary": "Update review (owner or admin)",
         "tags": [
           "reviews"
         ]
@@ -1085,7 +1150,7 @@
             "accessToken": []
           }
         ],
-        "summary": "Delete review (admin only)",
+        "summary": "Delete review (owner or admin)",
         "tags": [
           "reviews"
         ]

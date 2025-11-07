@@ -2,7 +2,8 @@
 import { Box, Button, Divider, InputAdornment, TextField } from "@mui/material";
 import { motion, type Variants } from "framer-motion";
 import { Search, ArrowRight } from "lucide-react";
-import { memo, useCallback } from "react";
+import { memo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export const HeroSearch = memo(function HeroSearch({
   variants,
@@ -11,19 +12,30 @@ export const HeroSearch = memo(function HeroSearch({
   variants: Variants;
   custom?: number;
 }) {
-  const onSubmit = useCallback((e: React.FormEvent) => e.preventDefault(), []);
+  const [q, setQ] = useState("")
+
+  const navigate = useNavigate();
+
+  const onSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = q.trim();
+    if (query) {
+      navigate(`/market/search?q=${encodeURIComponent(query)}`);
+    }
+  };
 
   return (
     <Box
       component={motion.form}
       variants={variants}
       custom={custom}
-      onSubmit={onSubmit}
+      onSubmit={onSearch}
       sx={{ width: "100%", maxWidth: 760 }}
     >
       <TextField
         fullWidth
         placeholder="Buscar laptops, monitores, audio…"
+        onChange={(e) => setQ(e.target.value)}
         size="medium"
         InputProps={{
           startAdornment: (
