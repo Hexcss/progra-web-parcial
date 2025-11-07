@@ -7,9 +7,11 @@ import { MarketParticles } from "../components/Particles/MarketParticles";
 
 export default function MarketLayout() {
   return (
-    <Box sx={{ minHeight: "100vh", display: "flex", flex: 1, flexDirection: "column", bgcolor: "background.default", color: "text.primary" }}>
+    <Box sx={{ minHeight: "100vh", display: "flex", flex: 1, flexDirection: "column", color: "text.primary" }}>
       <MarketTopBar />
-      <MarketParticles />
+      <div style={{ zIndex: -1 }}>
+        <MarketParticles />
+      </div>
       <Box component="main" sx={{ flexGrow: 1, py: { xs: 3, md: 4 } }}>
         <Container maxWidth="xl">
           <Suspense fallback={<AppLoader open message="Cargando mercado…" />}>

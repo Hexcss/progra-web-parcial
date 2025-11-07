@@ -1,65 +1,84 @@
-// src/queries/products.queries.ts
+// src/queries/reviews.queries.ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-    ProductsAPI,
-    type ProductListParams,
-} from "../backend/apis/product.api"
+import { ReviewsAPI, type ReviewListParams, type PaginatedReviews } from "../backend/apis/review.api"
 import { unwrapApiCall } from "../utils/functions/unwrap-api-call.function"
-import type {
-    PaginatedProducts,
-    ProductDetail,
-    CreateProductPayload,
-    UpdateProductPayload,
-} from "../schemas/market.schemas"
+import type { ReviewEnriched } from "../backend/apis/review.api"
+import type { CreateReviewPayload, UpdateReviewPayload } from "../schemas/market.schemas"
+import { productsKey } from "./products.queries"
 
-export const productsKey = {
-    root: ["products"] as const,
-    list: (params: ProductListParams = {}) => [...productsKey.root, "list", params] as const,
-    byId: (id: string) => [...productsKey.root, id] as const,
+export const reviewsKey = {
+  root: ["reviews"] as const,
+  list: (params: ReviewListParams = {}) => [...reviewsKey.root, "list", params] as const,
+  byId: (id: string) => [...reviewsKey.root, id] as const,
+  byProduct: (productId: string, page = 1, limit = 10) =>
+    [...reviewsKey.root, "product", productId, { page, limit }] as const,
+  byUser: (userId: string, page = 1, limit = 10) =>
+    [...reviewsKey.root, "user", userId, { page, limit }] as const,
 }
 
-export function useProductsQuery(params: ProductListParams = {}) {
-    return useQuery<PaginatedProducts>({
-        queryKey: productsKey.list(params),
-        queryFn: async () => unwrapApiCall(await ProductsAPI.list(params)),
-    })
+export function useReviewsQuery(params: ReviewListParams = {}) {
+  return useQuery<PaginatedReviews>({
+    queryKey: reviewsKey.list(params),
+    queryFn: async () => unwrapApiCall(await ReviewsAPI.list(params)),
+  })
 }
 
-export function useProductQuery(id?: string) {
-    return useQuery<ProductDetail>({
-        queryKey: id ? productsKey.byId(id) : productsKey.byId(""),
-        queryFn: async () => unwrapApiCall(await ProductsAPI.getById(id!)),
-        enabled: !!id,
-    })
+export function useProductReviewsQuery(productId?: string, page = 1, limit = 10) {
+  return useQuery<PaginatedReviews>({
+    queryKey: productId ? reviewsKey.byProduct(productId, page, limit) : reviewsKey.byProduct("", page, limit),
+    queryFn: async () => unwrapApiCall(await ReviewsAPI.list({ productId: productId!, page, limit })),
+    enabled: !!productId,
+    staleTime: 30000,
+  })
 }
 
-export function useCreateProduct() {
-    const qc = useQueryClient()
-    return useMutation({
-        mutationFn: async (input: CreateProductPayload) => unwrapApiCall(await ProductsAPI.create(input)),
-        onSuccess: (_data, _vars, _ctx) => {
-            qc.invalidateQueries({ queryKey: productsKey.root })
-        },
-    })
+export function useUserReviewsQuery(userId?: string, page = 1, limit = 10) {
+  return useQuery<PaginatedReviews>({
+    queryKey: userId ? reviewsKey.byUser(userId, page, limit) : reviewsKey.byUser("", page, limit),
+    queryFn: async () => unwrapApiCall(await ReviewsAPI.list({ userId: userId!, page, limit })),
+    enabled: !!userId,
+    staleTime: 30000,
+  })
 }
 
-export function useUpdateProduct(id: string) {
-    const qc = useQueryClient()
-    return useMutation({
-        mutationFn: async (input: UpdateProductPayload) => unwrapApiCall(await ProductsAPI.update(id, input)),
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: productsKey.byId(id) })
-            qc.invalidateQueries({ queryKey: productsKey.root })
-        },
-    })
+export function useReviewQuery(id?: string) {
+  return useQuery<ReviewEnriched>({
+    queryKey: id ? reviewsKey.byId(id) : reviewsKey.byId(""),
+    queryFn: async () => unwrapApiCall(await ReviewsAPI.getById(id!)),
+    enabled: !!id,
+  })
 }
 
-export function useDeleteProduct() {
-    const qc = useQueryClient()
-    return useMutation({
-        mutationFn: async (id: string) => unwrapApiCall(await ProductsAPI.remove(id)),
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: productsKey.root })
-        },
-    })
+export function useCreateReview() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: CreateReviewPayload) => unwrapApiCall(await ReviewsAPI.create(input)),
+    onSuccess: (created: ReviewEnriched) => {
+      qc.invalidateQueries({ queryKey: reviewsKey.root })
+      if (created?.productId) qc.invalidateQueries({ queryKey: productsKey.byId(created.productId) })
+    },
+  })
+}
+
+export function useUpdateReview(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateReviewPayload) => unwrapApiCall(await ReviewsAPI.update(id, input)),
+    onSuccess: (updated: ReviewEnriched) => {
+      qc.invalidateQueries({ queryKey: reviewsKey.byId(id) })
+      qc.invalidateQueries({ queryKey: reviewsKey.root })
+      if (updated?.productId) qc.invalidateQueries({ queryKey: productsKey.byId(updated.productId) })
+    },
+  })
+}
+
+export function useDeleteReview() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (vars: { id: string; productId?: string }) => unwrapApiCall(await ReviewsAPI.remove(vars.id)),
+    onSuccess: (_res, vars) => {
+      qc.invalidateQueries({ queryKey: reviewsKey.root })
+      if (vars.productId) qc.invalidateQueries({ queryKey: productsKey.byId(vars.productId) })
+    },
+  })
 }

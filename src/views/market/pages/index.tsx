@@ -2,8 +2,7 @@
 import { Suspense } from "react"
 import { Box } from "@mui/material"
 import { AnimatePresence } from "framer-motion"
-import { HeroSection, TopProductsSection } from "../components"
-
+import { HeroSection, TopProductsSection, TopCategoriesSection } from "../components"
 
 export default function MarketHomePage() {
   return (
@@ -13,8 +12,13 @@ export default function MarketHomePage() {
           <HeroSection />
         </Suspense>
       </AnimatePresence>
+
       <Suspense fallback={null}>
         <TopProductsSection />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <TopCategoriesSection />
       </Suspense>
     </Box>
   )

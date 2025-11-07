@@ -1,11 +1,26 @@
-import axios, { AxiosError } from "axios";
-import { queueSnackbarForNextLoad, showSnackbar } from "../../signals/snackbar.signal";
-import { triggerSessionExpired } from "../../signals/session.signal";
+// src/backend/clients/base.client.ts
+import axios, { AxiosError, type AxiosRequestConfig } from "axios";
 import cleanDeep from "clean-deep";
 import { env } from "../../config/env";
 import { normalizeMessage } from "../../utils/functions/mormalize-message.function";
+import { queueSnackbarForNextLoad, showSnackbar } from "../../signals/snackbar.signal";
+import { triggerSessionExpired } from "../../signals/session.signal";
 
 const POST_LOGIN_REDIRECT = "postLoginRedirect";
+
+// ---- Axios config augmentation ----
+declare module "axios" {
+  interface AxiosRequestConfig {
+    /** Hide ALL UI side-effects for this request (snackbars, redirects). */
+    silent?: boolean;
+    /** Do not show session-expired UI for 401 on this request (used for /auth/me). */
+    silent401?: boolean;
+    /** Skip snackbars but allow other flows. */
+    skipSnackbar?: boolean;
+    /** Skip redirect flows (403 → /unauthorized, 401 → save post-login, etc.). */
+    skipRedirect?: boolean;
+  }
+}
 
 export const baseClient = axios.create({
   baseURL: env.API_URL,
@@ -13,6 +28,7 @@ export const baseClient = axios.create({
   withCredentials: true,
 });
 
+// ---- helpers ----
 const isBypassValue = (v: unknown) =>
   (typeof FormData !== "undefined" && v instanceof FormData) ||
   (typeof Blob !== "undefined" && v instanceof Blob) ||
@@ -41,62 +57,85 @@ const sanitize = <T>(obj: T): T => {
   }
 };
 
+// prevent multiple simultaneous 401 spam
+let sessionNotified = false;
+
+// ---- request interceptor ----
 baseClient.interceptors.request.use(
   (config) => {
     const method = (config.method ?? "").toLowerCase();
-    const isWrite = ["post", "put", "patch"].includes(method);
-    if (isWrite) {
+    // sanitize params for all requests; body for non-multipart writes
+    if (config.params) config.params = sanitize(config.params);
+    if (["post", "put", "patch"].includes(method)) {
       const ct = String(config.headers?.["Content-Type"] ?? config.headers?.["content-type"] ?? "");
       const isMultipart = ct.toLowerCase().includes("multipart/form-data");
-      if (!isMultipart) {
-        if (config.data) config.data = sanitize(config.data);
-        if (config.params) config.params = sanitize(config.params);
-      }
+      if (!isMultipart && config.data) config.data = sanitize(config.data);
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
+// ---- response interceptor ----
 baseClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // if a call succeeded, clear the 401-notified fuse so future expirations can notify again
+    sessionNotified = false;
+    return response;
+  },
   (error: AxiosError<any>) => {
-    try {
-      const status = error?.response?.status ?? null;
-      const data = error?.response?.data as { message?: unknown; error?: unknown } | undefined;
+    const cfg = (error.config ?? {}) as AxiosRequestConfig;
+    const silentAll = !!cfg.silent;
+    const silent401 = !!cfg.silent401 || String(cfg.url ?? "").endsWith("/auth/me");
+    const skipSnackbar = !!cfg.skipSnackbar || silentAll;
+    const skipRedirect = !!cfg.skipRedirect || silentAll;
 
-      const raw =
-        data?.message ??
-        data?.error ??
-        error?.message ??
-        "Error desconocido";
+    const status = error?.response?.status ?? null;
+    const data = error?.response?.data as { message?: unknown; error?: unknown } | undefined;
 
-      const internalMessage = normalizeMessage(raw, "Error desconocido");
+    const raw = data?.message ?? data?.error ?? error?.message ?? "Error desconocido";
+    const internalMessage = normalizeMessage(raw, "Error desconocido");
 
-      if (status === 401) {
-        const uiMsg = "Tu sesión ha caducado. Vuelve a iniciar sesión para continuar.";
-        const isOnLogin = window.location.pathname === "/login";
-        if (!isOnLogin) {
-          const intended = window.location.pathname + window.location.search;
-          localStorage.setItem(POST_LOGIN_REDIRECT, intended);
-          queueSnackbarForNextLoad(uiMsg, "warning");
-        } else {
-          showSnackbar(uiMsg, "warning");
+    if (status === 401) {
+      if (!silent401) {
+        if (!sessionNotified) {
+          sessionNotified = true;
+          const uiMsg = "Tu sesión ha caducado. Vuelve a iniciar sesión para continuar.";
+          const onLogin = window.location.pathname === "/login";
+          if (!skipSnackbar) {
+            if (onLogin) showSnackbar(uiMsg, "warning");
+            else queueSnackbarForNextLoad(uiMsg, "warning");
+          }
+          if (!skipRedirect && !onLogin) {
+            try {
+              const intended = window.location.pathname + window.location.search;
+              localStorage.setItem(POST_LOGIN_REDIRECT, intended);
+            } catch {}
+          }
+          triggerSessionExpired();
         }
-        triggerSessionExpired();
       }
+      if (import.meta.env.DEV) {
+        console.warn("[axios] 401 handled", { url: cfg.url, silent401, internalMessage });
+      }
+      return Promise.reject(error);
+    }
 
+    if (status === 403) {
+      if (!skipSnackbar) showSnackbar("No tienes permisos para esta acción. Redirigiendo…", "warning");
+      if (!skipRedirect && window.location.pathname !== "/unauthorized") {
+        queueSnackbarForNextLoad("No tienes permisos para esta acción.", "warning");
+        window.location.replace("/unauthorized");
+      }
+      return Promise.reject(error);
+    }
+
+    // generic UI for other codes (unless silenced)
+    if (!skipSnackbar) {
       let uiMessage = "Ha ocurrido un problema. Inténtalo de nuevo.";
       switch (status) {
         case 400:
           uiMessage = "No pudimos procesar la solicitud. Revisa los datos e inténtalo otra vez.";
-          break;
-        case 403:
-          uiMessage = "No tienes permisos para esta acción. Redirigiendo…";
-          if (window.location.pathname !== "/unauthorized") {
-            queueSnackbarForNextLoad(uiMessage, "warning");
-            window.location.replace("/unauthorized");
-          }
           break;
         case 404:
           uiMessage = "No encontramos lo que buscabas. Verifica la información.";
@@ -119,43 +158,22 @@ baseClient.interceptors.response.use(
           uiMessage = "El servicio no está disponible temporalmente. Por favor, inténtalo más tarde.";
           break;
         default:
-          if (!status) {
-            uiMessage = "No hay conexión con el servidor. Verifica tu red e inténtalo nuevamente.";
-          }
+          if (!status) uiMessage = "No hay conexión con el servidor. Verifica tu red e inténtalo nuevamente.";
       }
+      const variant = status && status >= 500 ? "error" : "warning";
+      showSnackbar(uiMessage, variant);
+    }
 
-      if (status !== 401 && status !== 403) {
-        const variant = status && status >= 500 ? "error" : "warning";
-        showSnackbar(uiMessage, variant);
-      }
-
-      if (import.meta.env.DEV) {
-        console.error("[axios] Error response:", {
-          url: error.config?.url,
-          status,
-          data,
-          internalMessage,
-        });
-      }
-
-      return Promise.resolve({
-        success: false,
+    if (import.meta.env.DEV) {
+      console.error("[axios] Error response:", {
+        url: error.config?.url,
         status,
-        message: uiMessage,
-        data: data ?? null,
-        error,
-      });
-    } catch (err) {
-      console.error("[axios] Fatal interceptor error", err);
-      const uiMessage = "Error inesperado en la aplicación. Inténtalo de nuevo.";
-      showSnackbar(uiMessage, "error");
-      return Promise.resolve({
-        success: false,
-        status: null,
-        message: uiMessage,
-        data: null,
-        error: err,
+        data,
+        internalMessage,
       });
     }
+
+    // Always reject for upstream safeApiCall to consume
+    return Promise.reject(error);
   }
 );
