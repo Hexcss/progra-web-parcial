@@ -6,6 +6,7 @@ import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import AppLoader from "../components/Loaders/AppLoader";
 import { categoriesMutationKey } from "../queries/categories.queries";
 import { UserProvider } from "../context/UserContext";
+import { ModalProvider } from "../providers/ModalProvider";
 
 const RootLayout: React.FC = () => {
   const navigation = useNavigation();
@@ -60,6 +61,7 @@ const RootLayout: React.FC = () => {
           "Activando modo turbo…",
         ]}
       />
+      <ModalProvider />
     </UserProvider>
   );
 };

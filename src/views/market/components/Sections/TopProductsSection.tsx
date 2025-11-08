@@ -48,12 +48,14 @@ export default function TopProductsSection() {
                     position: "relative",
                     px: { xs: 1.5, sm: 2, md: 3 },
                     "&:hover .nav-arrow": { opacity: 1, transform: "translateY(-50%) scale(1)" },
+                    py: 2,
                 }}
             >
                 <Box
                     ref={emblaRef}
                     sx={{
                         overflow: "hidden",
+                        pb: 1.5,
                     }}
                     onKeyDown={(e) => {
                         if (e.key === "ArrowLeft") scrollPrev();
@@ -68,7 +70,7 @@ export default function TopProductsSection() {
                         className="embla__container"
                         sx={{
                             display: "flex",
-                            gap: "12px",
+                            mx: { xs: -1, sm: -1.5, md: -2 },
                         }}
                     >
                         {isLoading &&
@@ -82,6 +84,8 @@ export default function TopProductsSection() {
                                         "@media (min-width:900px)": { flex: "0 0 30%" },
                                         "@media (min-width:1200px)": { flex: "0 0 22%" },
                                         minWidth: 0,
+                                        px: { xs: 1, sm: 1.5, md: 2 },
+                                        py: 1.5,
                                     }}
                                 >
                                     <Card sx={{ borderRadius: 2.5, overflow: "hidden" }}>
@@ -106,6 +110,8 @@ export default function TopProductsSection() {
                                         "@media (min-width:900px)": { flex: "0 0 30%" },
                                         "@media (min-width:1200px)": { flex: "0 0 22%" },
                                         minWidth: 0,
+                                        px: { xs: 1, sm: 1.5, md: 2 },
+                                        py: 1.5,
                                     }}
                                 >
                                     <ProductCard product={p} />

@@ -47,6 +47,8 @@ const computeFinalPrice = (price: number, discountPercent?: number | null) => {
   return Math.max(0.01, Number(v.toFixed(2)));
 };
 
+const cartEventName = (key: string) => `cart:${key}:updated`;
+
 export function useLocalShoppingCart(storageKey: string = STORAGE_KEY) {
   const initial = useMemo<CartState>(() => {
     if (typeof window === "undefined") return { items: [], updatedAt: Date.now(), version: 1 };
@@ -57,14 +59,18 @@ export function useLocalShoppingCart(storageKey: string = STORAGE_KEY) {
   const [state, setState] = useState<CartState>(initial);
   const writing = useRef(false);
 
-  const persist = useCallback((next: CartState) => {
-    try {
-      writing.current = true;
-      localStorage.setItem(storageKey, JSON.stringify(next));
-    } finally {
-      writing.current = false;
-    }
-  }, [storageKey]);
+  const persist = useCallback(
+    (next: CartState) => {
+      try {
+        writing.current = true;
+        localStorage.setItem(storageKey, JSON.stringify(next));
+        window.dispatchEvent(new CustomEvent<CartState>(cartEventName(storageKey), { detail: next }));
+      } finally {
+        writing.current = false;
+      }
+    },
+    [storageKey]
+  );
 
   useEffect(() => {
     persist(state);
@@ -77,8 +83,17 @@ export function useLocalShoppingCart(storageKey: string = STORAGE_KEY) {
       const parsed = safeParse(e.newValue);
       if (parsed) setState(parsed);
     };
+    const onLocalBroadcast = (e: Event) => {
+      if (writing.current) return;
+      const detail = (e as CustomEvent<CartState>).detail;
+      if (detail) setState(detail);
+    };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener(cartEventName(storageKey), onLocalBroadcast as EventListener);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(cartEventName(storageKey), onLocalBroadcast as EventListener);
+    };
   }, [storageKey]);
 
   const items = state.items;
@@ -154,13 +169,13 @@ export function useLocalShoppingCart(storageKey: string = STORAGE_KEY) {
 
   return {
     items,
-    totals,           // { count, distinct, subtotal }
-    addProduct,       // (product, qty=1)
-    setQty,           // (productId, qty)
-    remove,           // (productId)
-    clear,            // ()
-    has,              // (productId)
-    getItem,          // (productId) => CartItem | null
+    totals,
+    addProduct,
+    setQty,
+    remove,
+    clear,
+    has,
+    getItem,
     updatedAt: state.updatedAt,
   };
 }

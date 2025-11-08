@@ -8,16 +8,11 @@ import { triggerSessionExpired } from "../../signals/session.signal";
 
 const POST_LOGIN_REDIRECT = "postLoginRedirect";
 
-// ---- Axios config augmentation ----
 declare module "axios" {
   interface AxiosRequestConfig {
-    /** Hide ALL UI side-effects for this request (snackbars, redirects). */
     silent?: boolean;
-    /** Do not show session-expired UI for 401 on this request (used for /auth/me). */
     silent401?: boolean;
-    /** Skip snackbars but allow other flows. */
     skipSnackbar?: boolean;
-    /** Skip redirect flows (403 → /unauthorized, 401 → save post-login, etc.). */
     skipRedirect?: boolean;
   }
 }
@@ -28,7 +23,6 @@ export const baseClient = axios.create({
   withCredentials: true,
 });
 
-// ---- helpers ----
 const isBypassValue = (v: unknown) =>
   (typeof FormData !== "undefined" && v instanceof FormData) ||
   (typeof Blob !== "undefined" && v instanceof Blob) ||
@@ -57,14 +51,35 @@ const sanitize = <T>(obj: T): T => {
   }
 };
 
-// prevent multiple simultaneous 401 spam
+const isNumericKey = (k: string) => /^\d+$/.test(k);
+const isObjectArray = (v: unknown): v is Record<string, unknown> => {
+  if (!isPlainObject(v)) return false;
+  const keys = Object.keys(v);
+  if (keys.length === 0) return false;
+  return keys.every(isNumericKey);
+};
+const objectArrayToArray = (o: Record<string, unknown>) =>
+  Object.keys(o)
+    .sort((a, b) => Number(a) - Number(b))
+    .map((k) => o[k]);
+
+const normalizeObjectArrays = (v: any): any => {
+  console.log("value: ", v);
+  if (Array.isArray(v)) return v.map(normalizeObjectArrays);
+  if (isObjectArray(v)) return objectArrayToArray(v).map(normalizeObjectArrays);
+  if (isPlainObject(v)) {
+    const out: Record<string, any> = {};
+    for (const [k, val] of Object.entries(v)) out[k] = normalizeObjectArrays(val);
+    return out;
+  }
+  return v;
+};
+
 let sessionNotified = false;
 
-// ---- request interceptor ----
 baseClient.interceptors.request.use(
   (config) => {
     const method = (config.method ?? "").toLowerCase();
-    // sanitize params for all requests; body for non-multipart writes
     if (config.params) config.params = sanitize(config.params);
     if (["post", "put", "patch"].includes(method)) {
       const ct = String(config.headers?.["Content-Type"] ?? config.headers?.["content-type"] ?? "");
@@ -76,11 +91,12 @@ baseClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ---- response interceptor ----
 baseClient.interceptors.response.use(
   (response) => {
-    // if a call succeeded, clear the 401-notified fuse so future expirations can notify again
     sessionNotified = false;
+    try {
+      response.data = normalizeObjectArrays(response.data);
+    } catch {}
     return response;
   },
   (error: AxiosError<any>) => {
@@ -130,7 +146,6 @@ baseClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // generic UI for other codes (unless silenced)
     if (!skipSnackbar) {
       let uiMessage = "Ha ocurrido un problema. Inténtalo de nuevo.";
       switch (status) {
@@ -173,7 +188,6 @@ baseClient.interceptors.response.use(
       });
     }
 
-    // Always reject for upstream safeApiCall to consume
     return Promise.reject(error);
   }
 );

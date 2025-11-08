@@ -26,6 +26,22 @@ const ZUpdateProfilePayload = z.object({
 });
 export type UpdateProfileInput = z.infer<typeof ZUpdateProfilePayload>;
 
+const ZCreateUserPayload = z.object({
+  email: z.string().email(),
+  displayName: z.string().optional(),
+  role: ZUserRole.optional(),
+  avatarUrl: z.string().url().optional(),
+  password: z.string(),
+});
+export type CreateUserInput = z.infer<typeof ZCreateUserPayload>;
+
+const ZAdminUpdateUserPayload = z.object({
+  displayName: z.string().optional(),
+  role: ZUserRole.optional(),
+  avatarUrl: z.string().url().optional(),
+});
+export type UpdateUserInput = z.infer<typeof ZAdminUpdateUserPayload>;
+
 export const UsersAPI = {
   async getProfile(): Promise<SafeApiResult<User | null>> {
     return safeApiCall(async () => {
@@ -61,6 +77,37 @@ export const UsersAPI = {
       const res = await baseClient.get(`/users/${encodeURIComponent(id)}`, { withCredentials: true });
       if (!res.data) return null;
       return ZUser.parse(res.data);
+    });
+  },
+
+  async create(input: CreateUserInput): Promise<SafeApiResult<User>> {
+    const parsed = ZCreateUserPayload.safeParse(input);
+    if (!parsed.success) {
+      const m = parsed.error.issues[0]?.message ?? "Datos inválidos";
+      return { success: false, message: m, status: null, data: null };
+    }
+    return safeApiCall(async () => {
+      const res = await baseClient.post("/users", parsed.data, { withCredentials: true });
+      return ZUser.parse(res.data);
+    });
+  },
+
+  async update(id: string, input: UpdateUserInput): Promise<SafeApiResult<User>> {
+    const parsed = ZAdminUpdateUserPayload.safeParse(input);
+    if (!parsed.success) {
+      const m = parsed.error.issues[0]?.message ?? "Datos inválidos";
+      return { success: false, message: m, status: null, data: null };
+    }
+    return safeApiCall(async () => {
+      const res = await baseClient.patch(`/users/${encodeURIComponent(id)}`, parsed.data, { withCredentials: true });
+      return ZUser.parse(res.data);
+    });
+  },
+
+  async remove(id: string): Promise<SafeApiResult<true>> {
+    return safeApiCall(async () => {
+      await baseClient.delete(`/users/${encodeURIComponent(id)}`, { withCredentials: true });
+      return true as const;
     });
   },
 };

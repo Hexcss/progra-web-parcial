@@ -1,3 +1,4 @@
+// src/views/market/components/Cards/CategoryCard.tsx
 import { useTheme, alpha } from "@mui/material/styles";
 import {
   Card,
@@ -9,6 +10,7 @@ import {
 import { motion } from "framer-motion";
 import { Link as RouterLink } from "react-router-dom";
 import type { CategoryEnriched } from "../../../../schemas/market.schemas";
+import { resolveAssetUrl } from "../../../../utils/functions/resolve-asset-url.function";
 
 type Props = {
   category: CategoryEnriched;
@@ -18,7 +20,7 @@ type Props = {
 export default function CategoryCard({ category, isRefreshing }: Props) {
   const theme = useTheme();
   const fallback = "https://placehold.co/640x480?text=Categor%C3%ADa";
-  const thumb = category.thumbnail || fallback;
+  const thumb = resolveAssetUrl(category.thumbnail) || fallback;
 
   const cardVariants = { rest: { y: 0 }, hover: { y: -5 } };
   const imageVariants = { rest: { scale: 1 }, hover: { scale: 1.08 } };
@@ -67,8 +69,6 @@ export default function CategoryCard({ category, isRefreshing }: Props) {
             alt={category.name}
             loading="lazy"
             decoding="async"
-            referrerPolicy="no-referrer"
-            crossOrigin="anonymous"
             onError={(e) => {
               const img = e.currentTarget as HTMLImageElement;
               if (img.src !== fallback) img.src = fallback;
@@ -77,6 +77,7 @@ export default function CategoryCard({ category, isRefreshing }: Props) {
               width: "100%",
               height: "100%",
               objectFit: "cover",
+              objectPosition: "center",
               display: "block",
               position: "absolute",
               inset: 0,

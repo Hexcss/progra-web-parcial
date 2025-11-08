@@ -3,21 +3,8 @@ import { memo, useMemo } from "react"
 import { Stack, Chip } from "@mui/material"
 import { motion, type Variants } from "framer-motion"
 import { Link as RouterLink } from "react-router-dom"
-import * as Lucide from "lucide-react"
 import { useCategoriesQuery } from "../../../../../queries/categories.queries"
-
-function toPascal(name: string) {
-  return name
-    .split(/[-_ ]+/g)
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join("")
-}
-
-function IconFromName({ icon, size = 14 }: { icon?: string; size?: number }) {
-  const key = icon ? toPascal(icon) : ""
-  const Cmp = (Lucide as Record<string, any>)[key] ?? Lucide.Tag
-  return <Cmp size={size} />
-}
+import { IconFromName } from "../../../../../utils/functions/icons.function"
 
 export const HeroChips = memo(function HeroChips({
   variants,
