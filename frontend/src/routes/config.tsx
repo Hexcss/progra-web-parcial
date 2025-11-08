@@ -206,6 +206,38 @@ export const routes: RouteObject[] = [
               },
             ],
           },
+          {
+            id: "portal-support",
+            path: "support",
+            children: [
+              {
+                index: true,
+                lazy: () =>
+                  import("../views/portal/pages/support").then((m) => ({
+                    Component: m.default,
+                    loadingMessage: "Cargando chats...",
+                  })),
+              },
+              {
+                id: "portal-support-chat",
+                path: "chat",
+                lazy: () =>
+                  import("../views/portal/pages/support/chat").then((m) => ({
+                    Component: m.default,
+                    loadingMessage: "Abriendo chat…",
+                  })),
+              },
+              {
+                id: "portal-support-chat-room",
+                path: "chat/:roomId",
+                lazy: () =>
+                  import("../views/portal/pages/support/chat").then((m) => ({
+                    Component: m.default,
+                    loadingMessage: "Abriendo chat…",
+                  })),
+              },
+            ],
+          },
         ],
       },
 
