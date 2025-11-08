@@ -110,6 +110,29 @@ export const routes: RouteObject[] = [
                 loadingMessage: "Cargando información…",
               })),
           },
+          {
+            id: "market-orders",
+            path: "orders",
+            children: [
+              {
+                index: true,
+                lazy: () =>
+                  import("../views/market/pages/orders").then((m) => ({
+                    Component: m.default,
+                    loadingMessage: "Cargando ordenes...",
+                  })),
+              },
+              {
+                id: "market-order-detail",
+                path: ":order",
+                lazy: () =>
+                  import("../views/market/pages/orders/detail").then((m) => ({
+                    Component: m.default,
+                    loadingMessage: "Cargando orden...",
+                  })),
+              },
+            ],
+          },
         ],
       },
 
@@ -151,6 +174,34 @@ export const routes: RouteObject[] = [
                   import("../views/portal/pages/users").then((m) => ({
                     Component: m.default,
                     loadingMessage: "Cargando usuarios…",
+                  })),
+              },
+            ],
+          },
+          {
+            id: "portal-categories",
+            path: "categories",
+            children: [
+              {
+                index: true,
+                lazy: () =>
+                  import("../views/portal/pages/categories").then((m) => ({
+                    Component: m.default,
+                    loadingMessage: "Cargando usuarios…",
+                  })),
+              },
+            ],
+          },
+          {
+            id: "portal-orders",
+            path: "orders",
+            children: [
+              {
+                index: true,
+                lazy: () =>
+                  import("../views/portal/pages/orders").then((m) => ({
+                    Component: m.default,
+                    loadingMessage: "Cargando pedidos",
                   })),
               },
             ],

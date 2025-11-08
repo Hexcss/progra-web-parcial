@@ -55,7 +55,7 @@ export default function AboutPage() {
   const theme = useTheme();
 
   return (
-    <Box sx={{ py: { xs: 4} }}>
+    <Box sx={{ py: { xs: 4}, pb: 3 }}>
       <Container maxWidth="lg">
         {/* Hero Section */}
         <Box

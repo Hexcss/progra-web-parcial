@@ -1,3 +1,4 @@
+// src/components/TopBars/MarketTopBar.tsx
 import { useMemo, useState, useCallback } from "react";
 import { Link as RouterLink, NavLink, useNavigate } from "react-router-dom";
 import {
@@ -16,21 +17,21 @@ import {
   Stack,
   Typography,
   useScrollTrigger,
-  Container,
 } from "@mui/material";
 import {
   Menu,
   Search,
   ShoppingCart,
   Store,
-  Cpu,
-  Monitor,
-  Headphones,
-  Laptop,
   LogIn,
   LogOut,
+  User,
+  LayoutDashboard,
 } from "lucide-react";
 import { useAuthActions, useAuthStatus } from "../../context/UserContext";
+import { useLocalShoppingCart } from "../../hooks/useLocalShoppingCart";
+import { openModal } from "../../signals/modal.signal";
+import { IfAuthenticated, IfAdmin } from "../Guards/RoleGuard";
 
 export default function MarketTopBar() {
   const [open, setOpen] = useState(false);
@@ -41,6 +42,8 @@ export default function MarketTopBar() {
   const { status, ready } = useAuthStatus();
   const { logout } = useAuthActions();
   const isAuthed = ready && status === "authenticated";
+
+  const { totals } = useLocalShoppingCart();
 
   const onSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,6 +60,16 @@ export default function MarketTopBar() {
     navigate("/market");
   }, [logout, navigate]);
 
+  const openCartModal = useCallback(() => {
+    setOpen(false);
+    openModal("shoppingCart", {});
+  }, []);
+
+  const openProfileModal = useCallback(() => {
+    setOpen(false);
+    openModal("profile", {});
+  }, []);
+
   const navLinks = useMemo(
     () => [
       { to: "/market", label: "Inicio", end: true },
@@ -67,13 +80,6 @@ export default function MarketTopBar() {
     ],
     [isAuthed]
   );
-
-  const categories = [
-    { to: "/market/categories/laptops", icon: <Laptop size={16} />, label: "Laptops" },
-    { to: "/market/categories/monitors", icon: <Monitor size={16} />, label: "Monitores" },
-    { to: "/market/categories/audio", icon: <Headphones size={16} />, label: "Audio" },
-    { to: "/market/categories/components", icon: <Cpu size={16} />, label: "Componentes" },
-  ];
 
   return (
     <>
@@ -92,7 +98,7 @@ export default function MarketTopBar() {
       >
         <Toolbar disableGutters sx={{ width: "100%" }}>
           <Box sx={{ px: { xs: 1.5, sm: 2, md: 3 }, width: "100%" }}>
-            <Container maxWidth="xl">
+            <Box sx={{ width: "100%", maxWidth: 1536, mx: "auto" }}>
               <Stack direction="row" alignItems="center" spacing={2} sx={{ width: "100%" }}>
                 <Box sx={{ display: { xs: "inline-flex", md: "none" } }}>
                   <IconButton onClick={() => setOpen(true)} aria-label="Abrir menú" sx={{ color: "text.primary" }}>
@@ -194,6 +200,23 @@ export default function MarketTopBar() {
                 </Box>
 
                 <Stack direction="row" alignItems="center" spacing={1.25} sx={{ display: { xs: "none", md: "flex" } }}>
+                  <IfAdmin>
+                    <Button
+                      component={RouterLink}
+                      to="/portal"
+                      startIcon={<LayoutDashboard size={16} />}
+                      sx={{
+                        textTransform: "none",
+                        height: 40,
+                        color: "text.secondary",
+                        borderRadius: 1.5,
+                        "&:hover": { bgcolor: "rgba(255,165,0,0.12)", color: "#d35400" },
+                      }}
+                    >
+                      Portal
+                    </Button>
+                  </IfAdmin>
+
                   {!isAuthed ? (
                     <>
                       <Button
@@ -241,19 +264,63 @@ export default function MarketTopBar() {
                       Cerrar sesión
                     </Button>
                   )}
-                  <IconButton
-                    aria-label="Carrito"
-                    sx={{
-                      color: "#e67e22",
-                      borderRadius: 1.5,
-                      "&:hover": { bgcolor: "rgba(255,165,0,0.12)" },
-                    }}
-                  >
-                    <ShoppingCart />
-                  </IconButton>
+
+                  <IfAuthenticated>
+                    <IconButton
+                      aria-label="Mi perfil"
+                      onClick={openProfileModal}
+                      sx={{
+                        color: "#e67e22",
+                        borderRadius: 1.5,
+                        "&:hover": { bgcolor: "rgba(255,165,0,0.12)" },
+                      }}
+                    >
+                      <User />
+                    </IconButton>
+
+                    <Box sx={{ position: "relative", display: "inline-flex" }}>
+                      <IconButton
+                        aria-label="Carrito"
+                        onClick={openCartModal}
+                        sx={{
+                          color: "#e67e22",
+                          borderRadius: 1.5,
+                          "&:hover": { bgcolor: "rgba(255,165,0,0.12)" },
+                        }}
+                      >
+                        <ShoppingCart />
+                      </IconButton>
+                      {totals.count > 0 && (
+                        <Box
+                          sx={{
+                            position: "absolute",
+                            left: "90%",
+                            bottom: -2,
+                            transform: "translateX(-50%)",
+                            width: 18,
+                            height: 18,
+                            borderRadius: "50%",
+                            bgcolor: "#e67e22",
+                            color: "#fff",
+                            display: "grid",
+                            placeItems: "center",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            boxShadow: "0 2px 6px rgba(230,126,34,0.35)",
+                            border: "1px solid rgba(255,255,255,0.9)",
+                            pointerEvents: "none",
+                            lineHeight: 1,
+                          }}
+                          aria-label={`${totals.count} artículos en el carrito`}
+                        >
+                          {totals.count}
+                        </Box>
+                      )}
+                    </Box>
+                  </IfAuthenticated>
                 </Stack>
               </Stack>
-            </Container>
+            </Box>
           </Box>
         </Toolbar>
       </AppBar>
@@ -331,36 +398,60 @@ export default function MarketTopBar() {
                 <ListItemText primary={l.label} primaryTypographyProps={{ fontSize: 14 }} />
               </ListItemButton>
             ))}
+
+            <IfAdmin>
+              <ListItemButton
+                component={RouterLink}
+                to="/portal"
+                onClick={() => setOpen(false)}
+                sx={{
+                  borderRadius: 1,
+                  "&.MuiListItemButton-root.Mui-focusVisible": { bgcolor: "rgba(255,165,0,0.12)" },
+                }}
+              >
+                <ListItemText primary="Portal" primaryTypographyProps={{ fontSize: 14 }} />
+              </ListItemButton>
+            </IfAdmin>
           </List>
 
           <Divider sx={{ my: 1.5 }} />
 
           <Stack spacing={1}>
-            {categories.map((c) => (
+            <IfAuthenticated>
               <Button
-                key={c.to}
-                component={RouterLink}
-                to={c.to}
-                onClick={() => setOpen(false)}
-                startIcon={c.icon}
-                sx={{
-                  justifyContent: "flex-start",
-                  textTransform: "none",
-                  color: "text.primary",
-                  borderRadius: 1.2,
-                  "&:hover": { bgcolor: "rgba(255,165,0,0.12)" },
-                }}
+                fullWidth
+                startIcon={<User size={16} />}
+                sx={{ textTransform: "none", borderRadius: 1.2 }}
+                onClick={openProfileModal}
               >
-                {c.label}
+                Mi perfil
               </Button>
-            ))}
-          </Stack>
 
-          <Divider sx={{ my: 1.5 }} />
+              <Button
+                fullWidth
+                startIcon={<ShoppingCart size={16} />}
+                sx={{ textTransform: "none", borderRadius: 1.2 }}
+                onClick={openCartModal}
+              >
+                Ver carrito {totals.count > 0 ? `(${totals.count})` : ""}
+              </Button>
+            </IfAuthenticated>
 
-          <Stack direction="row" spacing={1}>
+            <IfAdmin>
+              <Button
+                component={RouterLink}
+                to="/portal"
+                fullWidth
+                startIcon={<LayoutDashboard size={16} />}
+                sx={{ textTransform: "none", borderRadius: 1.2 }}
+                onClick={() => setOpen(false)}
+              >
+                Ir al Portal
+              </Button>
+            </IfAdmin>
+
             {!isAuthed ? (
-              <>
+              <Stack direction="row" spacing={1}>
                 <Button
                   component={RouterLink}
                   to="/login"
@@ -386,7 +477,7 @@ export default function MarketTopBar() {
                 >
                   Crear cuenta
                 </Button>
-              </>
+              </Stack>
             ) : (
               <Button
                 fullWidth

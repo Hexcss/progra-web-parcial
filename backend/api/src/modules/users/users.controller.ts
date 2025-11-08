@@ -64,6 +64,7 @@ export class UsersController {
       displayName: found.displayName,
       role: found.role,
       createdAt: (found as any).createdAt,
+      avatarUrl: found.avatarUrl
     };
   }
 

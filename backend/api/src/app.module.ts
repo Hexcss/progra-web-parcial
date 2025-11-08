@@ -12,6 +12,9 @@ import { CoreModule } from './shared/core/core.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { DiscountsModule } from './modules/discounts/discount.module';
+import { FilesModule } from './shared/files/files.module';
+import { OrdersModule } from './modules/orders/orders.module';
+import { EmailModule } from './shared/email/email.module';
 
 @Module({
   imports: [
@@ -34,12 +37,15 @@ import { DiscountsModule } from './modules/discounts/discount.module';
     
     HealthModule,
     DatabaseModule,
+    EmailModule,
     AuthModule,
     UsersModule,
+    FilesModule,
     CategoriesModule,
     ProductsModule,
     ReviewsModule,
-    DiscountsModule
+    DiscountsModule,
+    OrdersModule
   ],
   providers: [AppLogger],
   exports: [AppLogger],
