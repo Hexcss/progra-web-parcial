@@ -18,6 +18,10 @@ export const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(1, 'JWT_REFRESH_SECRET is required'),
   JWT_ACCESS_EXPIRES: ttlSchema.default('15m'),
   JWT_REFRESH_EXPIRES: ttlSchema.default('7d'),
+
+  STORAGE_BUCKET: z.string().optional(),
+  GCS_BUCKET: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
 });
 
 export type EnvVars = z.infer<typeof envSchema>;

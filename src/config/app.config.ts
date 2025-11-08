@@ -18,7 +18,4 @@ export const appConfig = () => ({
             | 'lax' | 'strict' | 'none',
         path: process.env.COOKIE_PATH ?? '/',
     },
-    csrf: {
-        cookieName: process.env.CSRF_COOKIE_NAME ?? 'csrfToken',
-    },
 });
