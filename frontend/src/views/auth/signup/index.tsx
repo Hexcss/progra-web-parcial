@@ -41,6 +41,8 @@ export default function SignupPage() {
   const registerMutation = useRegisterMutation();
   const [apiError, setApiError] = useState<string | null>(null);
   const [oauthLoading, setOauthLoading] = useState<"google" | "github" | null>(null);
+  const [verifySuccess, setVerifySuccess] = useState<{ email: string } | null>(null);
+  const [verifyWarning, setVerifyWarning] = useState<string | null>(null);
 
   const {
     control,
@@ -53,8 +55,18 @@ export default function SignupPage() {
 
   const onSubmit = async (data: RegisterSchema) => {
     setApiError(null);
+    setVerifyWarning(null);
+    setVerifySuccess(null);
     try {
-      await registerMutation.mutateAsync(data);
+      const res: any = await registerMutation.mutateAsync(data);
+      const ve = res?.verificationEmail;
+      if (ve?.attempted && ve?.sent) {
+        setVerifySuccess({ email: data.email });
+        return;
+      }
+      if (ve?.attempted && !ve?.sent) {
+        setVerifyWarning("No pudimos enviar el correo de verificación. Tu cuenta se ha creado correctamente.");
+      }
       await login({ email: data.email, password: data.password });
       const redirectPath = getPostLoginRedirect() || "/market";
       clearPostLoginRedirect();
@@ -189,6 +201,22 @@ export default function SignupPage() {
 
             <Box sx={{ flex: 0.95 }}>
               <Stack spacing={2.25} component="form" onSubmit={handleSubmit(onSubmit)}>
+                {verifySuccess && (
+                  <Alert
+                    severity="success"
+                    action={
+                      <Stack direction="row" spacing={1}>
+                        <Button variant="contained" color="warning" onClick={() => navigate("/login")} sx={{ color: "white" }}>
+                          Ir a iniciar sesión
+                        </Button>
+                      </Stack>
+                    }
+                  >
+                    Te hemos enviado un correo de verificación a <b>{verifySuccess.email}</b>. Abre el enlace para activar tu cuenta y luego inicia sesión.
+                  </Alert>
+                )}
+
+                {verifyWarning && <Alert severity="warning">{verifyWarning}</Alert>}
                 {apiError && <Alert severity="error">{apiError}</Alert>}
 
                 <Controller
@@ -202,6 +230,7 @@ export default function SignupPage() {
                       color="warning"
                       error={!!errors.displayName}
                       helperText={errors.displayName?.message}
+                      disabled={!!verifySuccess}
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
@@ -225,6 +254,7 @@ export default function SignupPage() {
                       color="warning"
                       error={!!errors.email}
                       helperText={errors.email?.message}
+                      disabled={!!verifySuccess}
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
@@ -248,6 +278,7 @@ export default function SignupPage() {
                       color="warning"
                       error={!!errors.password}
                       helperText={errors.password?.message}
+                      disabled={!!verifySuccess}
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
@@ -267,6 +298,7 @@ export default function SignupPage() {
                   size="large"
                   loading={isSubmitting || registerMutation.isPending}
                   endIcon={<ArrowRight />}
+                  disabled={!!verifySuccess}
                   sx={{ textTransform: "none", fontSize: "1.05rem", py: 1.25, color: "white" }}
                 >
                   Crear Cuenta
@@ -280,7 +312,7 @@ export default function SignupPage() {
                     variant="outlined"
                     color="inherit"
                     onClick={doGoogle}
-                    disabled={!!oauthLoading}
+                    disabled={!!oauthLoading || !!verifySuccess}
                     sx={{ borderColor: "divider", textTransform: "none", display: "flex", gap: 1 }}
                   >
                     <GoogleIcon sx={{ width: 20 }} />
@@ -292,7 +324,7 @@ export default function SignupPage() {
                     color="inherit"
                     startIcon={<Github size={18} />}
                     onClick={doGithub}
-                    disabled={!!oauthLoading}
+                    disabled={!!oauthLoading || !!verifySuccess}
                     sx={{ borderColor: "divider", textTransform: "none" }}
                   >
                     {oauthLoading === "github" ? "Redirigiendo…" : "GitHub"}

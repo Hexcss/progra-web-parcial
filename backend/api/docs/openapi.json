@@ -371,6 +371,9 @@
                             "admin"
                           ]
                         },
+                        "emailVerified": {
+                          "type": "boolean"
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time"
@@ -378,6 +381,25 @@
                         "updatedAt": {
                           "type": "string",
                           "format": "date-time"
+                        }
+                      }
+                    },
+                    "verificationEmail": {
+                      "type": "object",
+                      "properties": {
+                        "attempted": {
+                          "type": "boolean"
+                        },
+                        "sent": {
+                          "type": "boolean"
+                        },
+                        "id": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "error": {
+                          "type": "string",
+                          "nullable": true
                         }
                       }
                     }
@@ -435,6 +457,9 @@
                             "user",
                             "admin"
                           ]
+                        },
+                        "emailVerified": {
+                          "type": "boolean"
                         },
                         "createdAt": {
                           "type": "string",
@@ -543,6 +568,29 @@
       "get": {
         "operationId": "AuthController_getWsTicket",
         "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/verify-email": {
+      "get": {
+        "operationId": "AuthController_verifyEmail",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""

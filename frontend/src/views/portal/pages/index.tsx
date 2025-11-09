@@ -65,6 +65,7 @@ export default function AdminSummaryPage() {
   const topProductsQ = useTopProductsQuery(5);
 
   const totals = useMemo(() => {
+    console.log("reviews data:", overviewReviews.data)
     const products = overviewProducts.data?.total ?? 0;
     const users = overviewUsers.data?.total ?? 0;
     const reviews = overviewReviews.data?.total ?? 0;
@@ -126,7 +127,7 @@ export default function AdminSummaryPage() {
   }, [ordersSample, startOfToday, endOfToday]);
 
   return (
-    <PortalLayout contentZoomable>
+    <PortalLayout contentZoomable allowScrolling>
       <Stack spacing={3}>
         <Stack
           direction={{ xs: "column", md: "row" }}

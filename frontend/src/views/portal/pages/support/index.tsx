@@ -201,6 +201,7 @@ export default function SupportAdminPage() {
             Actualizar
           </Button>
         }
+        inheritPortalScroll
       >
         <Stack spacing={3}>
           <Typography variant="h6" fontWeight={800}>Chats en espera</Typography>

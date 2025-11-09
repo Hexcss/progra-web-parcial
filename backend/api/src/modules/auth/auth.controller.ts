@@ -85,22 +85,34 @@ export class AuthController {
             email: { type: 'string', format: 'email' },
             displayName: { type: 'string', nullable: true },
             role: { type: 'string', enum: ['user', 'admin'] },
+            emailVerified: { type: 'boolean' },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' },
           },
         },
+        verificationEmail: {
+          type: 'object',
+          properties: {
+            attempted: { type: 'boolean' },
+            sent: { type: 'boolean' },
+            id: { type: 'string', nullable: true },
+            error: { type: 'string', nullable: true },
+          }
+        }
       },
     },
   })
   @Public()
   @Post('register')
-  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response, @Req() req: Request) {
     const result = await this.auth.register(dto.email, dto.password, dto.displayName);
     setAuthCookies(res, this.cfg, {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
     });
-    return { user: result.user };
+    const origin = this.resolveServerOrigin(req);
+    const verificationEmail = await this.auth.maybeSendEmailVerification(result.user, origin);
+    return { user: result.user, verificationEmail };
   }
 
   @ApiOperation({ summary: 'Login and set auth cookies' })
@@ -116,6 +128,7 @@ export class AuthController {
             email: { type: 'string', format: 'email' },
             displayName: { type: 'string', nullable: true },
             role: { type: 'string', enum: ['user', 'admin'] },
+            emailVerified: { type: 'boolean' },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' },
           },
@@ -175,6 +188,15 @@ export class AuthController {
   async getWsTicket(@CurrentUser() user: any) {
     const token = await this.auth.createWsTicket(user);
     return { token };
+  }
+
+  @Public()
+  @Get('verify-email')
+  async verifyEmail(@Res() res: Response, @Query('token') token?: string) {
+    if (!token) throw new BadRequestException('Missing token');
+    await this.auth.verifyEmailToken(token);
+    const url = this.getClientUrl() + '/market';
+    return res.redirect(303, url);
   }
 
   @Public()

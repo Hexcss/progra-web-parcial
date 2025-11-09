@@ -1,4 +1,3 @@
-// src/backend/apis/review.api.ts
 import { z } from "zod"
 import { baseClient } from "../clients/base.client"
 import { safeApiCall, type SafeApiResult } from "../../utils/functions/safe-api-call.function"
@@ -6,7 +5,6 @@ import {
   ZReview,
   ZCreateReviewPayload,
   ZUpdateReviewPayload,
-  type Review,
   type CreateReviewPayload,
   type UpdateReviewPayload,
 } from "../../schemas/market.schemas"
@@ -16,7 +14,7 @@ const ZPublicUser = z
     _id: z.string().optional(),
     displayName: z.string().optional(),
     email: z.string().email().optional(),
-    avatarUrl: z.string().url().optional(),
+    avatarUrl: z.string().optional(),
   })
   .partial()
 
@@ -42,22 +40,41 @@ export type PaginatedReviews = {
   limit: number
 }
 
-function normalizeItems(payload: any): ReviewEnriched[] {
-  const candidate =
-    payload?.items !== undefined ? payload.items :
-    payload?.data !== undefined ? payload.data :
-    payload
+function extractListPayload(
+  body: any,
+  fallbackPage?: number,
+  fallbackLimit?: number
+): PaginatedReviews {
+  const root = body && typeof body === "object" && "data" in body ? body.data : body
+  const itemsRaw =
+    Array.isArray(root?.items) ? root.items :
+    Array.isArray(root?.data) ? root.data :
+    Array.isArray(root) ? root :
+    []
 
-  if (Array.isArray(candidate)) {
-    return z.array(ZReviewEnriched).parse(candidate)
-  }
+  const items = z.array(ZReviewEnriched).parse(itemsRaw)
 
-  if (candidate && typeof candidate === "object") {
-    const vals = Object.values(candidate as Record<string, unknown>)
-    return z.array(ZReviewEnriched).parse(vals)
-  }
+  const total =
+    typeof root?.total === "number" ? root.total :
+    typeof body?.total === "number" ? body.total :
+    items.length
 
-  return z.array(ZReviewEnriched).parse([] as Review[])
+  const page =
+    typeof root?.page === "number" ? root.page :
+    typeof body?.page === "number" ? body.page :
+    (fallbackPage ?? 1)
+
+  const limit =
+    typeof root?.limit === "number" ? root.limit :
+    typeof body?.limit === "number" ? body.limit :
+    (fallbackLimit ?? (items.length || 10))
+
+  return { items, total, page, limit }
+}
+
+function extractEntity<T extends z.ZodTypeAny>(body: any, schema: T): z.infer<T> {
+  const payload = body && typeof body === "object" && "data" in body ? body.data : body
+  return schema.parse(payload)
 }
 
 export const ReviewsAPI = {
@@ -69,21 +86,14 @@ export const ReviewsAPI = {
     }
     return safeApiCall(async () => {
       const res = await baseClient.get("/reviews", { params: parsed.data, withCredentials: true })
-      const items = normalizeItems(res.data)
-      const total =
-        typeof res.data?.total === "number" ? res.data.total : items.length
-      const page =
-        typeof res.data?.page === "number" ? res.data.page : (parsed.data.page ?? 1)
-      const limit =
-        typeof res.data?.limit === "number" ? res.data.limit : (parsed.data.limit ?? (items.length || 10))
-      return { items, total, page, limit }
+      return extractListPayload(res.data, parsed.data.page, parsed.data.limit)
     })
   },
 
   async getById(id: string): Promise<SafeApiResult<ReviewEnriched>> {
     return safeApiCall(async () => {
       const res = await baseClient.get(`/reviews/${encodeURIComponent(id)}`, { withCredentials: true })
-      return ZReviewEnriched.parse(res.data)
+      return extractEntity(res.data, ZReviewEnriched)
     })
   },
 
@@ -95,7 +105,7 @@ export const ReviewsAPI = {
     }
     return safeApiCall(async () => {
       const res = await baseClient.post("/reviews", parsed.data, { withCredentials: true })
-      return ZReviewEnriched.parse(res.data)
+      return extractEntity(res.data, ZReviewEnriched)
     })
   },
 
@@ -107,14 +117,15 @@ export const ReviewsAPI = {
     }
     return safeApiCall(async () => {
       const res = await baseClient.put(`/reviews/${encodeURIComponent(id)}`, parsed.data, { withCredentials: true })
-      return ZReviewEnriched.parse(res.data)
+      return extractEntity(res.data, ZReviewEnriched)
     })
   },
 
   async remove(id: string): Promise<SafeApiResult<{ success: boolean }>> {
     return safeApiCall(async () => {
       const res = await baseClient.delete(`/reviews/${encodeURIComponent(id)}`, { withCredentials: true })
-      return res.data
+      const payload = res.data && typeof res.data === "object" && "data" in res.data ? res.data.data : res.data
+      return payload
     })
   },
 }
