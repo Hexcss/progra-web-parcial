@@ -124,4 +124,10 @@ export class AuthController {
     clearAuthCookies(res, this.cfg);
     return { success: true };
   }
+
+  @Get('ws-ticket')
+  async getWsTicket(@CurrentUser() user: any) {
+    const token = await this.auth.createWsTicket(user);
+    return { token };
+  }
 }

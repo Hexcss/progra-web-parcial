@@ -539,6 +539,20 @@
         ]
       }
     },
+    "/auth/ws-ticket": {
+      "get": {
+        "operationId": "AuthController_getWsTicket",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_ok",

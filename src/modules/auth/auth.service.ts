@@ -10,6 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Role } from '../../common/enums/role.enum';
 import { verifyHash } from '../../common/crypto/argon2.util';
+import { randomUUID } from 'node:crypto';
 
 type Tokens = { accessToken: string; refreshToken: string };
 
@@ -118,8 +119,18 @@ export class AuthService {
     return { success: true };
   }
 
-  /** Deprecated if you want Firebase-like stateless refresh; kept for compatibility */
-  async refresh(_userId: string, _presentedRefreshToken: string) {
-    throw new BadRequestException('Use refreshWithToken(refreshToken) instead');
+  async createWsTicket(user: { sub: string; email: string; role: Role }): Promise<string> {
+    const payload = {
+      sub: user.sub,
+      email: user.email,
+      role: user.role,
+      aud: 'ws',
+      typ: 'ws',
+      jti: randomUUID(),
+    };
+    return this.jwt.signAsync(payload, {
+      secret: this.cfg.getOrThrow<string>('jwt.accessSecret'),
+      expiresIn: 60, // 60s ticket
+    });
   }
 }
