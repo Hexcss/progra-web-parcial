@@ -64,7 +64,6 @@ const objectArrayToArray = (o: Record<string, unknown>) =>
     .map((k) => o[k]);
 
 const normalizeObjectArrays = (v: any): any => {
-  console.log("value: ", v);
   if (Array.isArray(v)) return v.map(normalizeObjectArrays);
   if (isObjectArray(v)) return objectArrayToArray(v).map(normalizeObjectArrays);
   if (isPlainObject(v)) {
