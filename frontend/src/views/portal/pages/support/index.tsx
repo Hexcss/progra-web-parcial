@@ -193,7 +193,7 @@ export default function SupportAdminPage() {
   ];
 
   return (
-    <PortalLayout>
+    <PortalLayout allowScrolling>
       <TableLayout
         title="Soporte"
         addButton={
