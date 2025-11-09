@@ -1,0 +1,84 @@
+# cloudbuild.yaml — Despliegue del Gateway (WS/API) a Cloud Run
+
+substitutions:
+  # ---------------------------------------------------------------------------
+  # 🔧 Servicio e imagen
+  # ---------------------------------------------------------------------------
+  _SERVICE_NAME: "portal-gateway"
+  _REGION: "europe-west1"
+  _REPO_NAME: "portal"
+  _IMAGE_NAME: "gateway"
+  _RUNTIME_SA: "portal-gateway@${PROJECT_ID}.iam.gserviceaccount.com"
+
+  # ---------------------------------------------------------------------------
+  # 🌍 Entorno de ejecución
+  # ---------------------------------------------------------------------------
+  _NODE_ENV: "production"
+  _LOG_LEVEL: "info"
+
+  # 🧠 Mongo
+  _MONGO_URI: "mongodb+srv://USER:PASS@CLUSTER/portal?retryWrites=true&w=majority"
+
+  # 🔗 CORS (URL(s) del frontend)
+  _CORS_ORIGIN: "https://portal-frontend-<region>-<project>.a.run.app"
+
+  # 🔐 JWT (debe coincidir con el API)
+  _JWT_ACCESS_SECRET: "changeme-access"
+  _JWT_REFRESH_SECRET: "changeme-refresh"
+
+  # 🔔 Webhook opcional (Discord)
+  _DISCORD_SUPPORT_WEBHOOK_URL: ""
+
+steps:
+  # 🧱 Build de la imagen (Dockerfile en backend/gateway)
+  - id: "build"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-f","backend/gateway/Dockerfile",
+        "-t","${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:$COMMIT_SHA",
+        "-t","${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:latest",
+        "backend/gateway"
+      ]
+
+  # 📤 Push de ambas etiquetas (sha + latest)
+  - id: "push-sha"
+    name: "gcr.io/cloud-builders/docker"
+    args: ["push", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:$COMMIT_SHA"]
+    waitFor: ["build"]
+
+  - id: "push-latest"
+    name: "gcr.io/cloud-builders/docker"
+    args: ["push", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:latest"]
+    waitFor: ["build"]
+
+  # 🚀 Despliegue en Cloud Run (puerto 4100 para el Gateway)
+  - id: "deploy"
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    entrypoint: "gcloud"
+    args:
+      [
+        "run","deploy","${_SERVICE_NAME}",
+        "--image","${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:$COMMIT_SHA",
+        "--region","${_REGION}",
+        "--platform","managed",
+        "--allow-unauthenticated",
+        "--service-account","${_RUNTIME_SA}",
+        "--max-instances","1",
+        "--cpu","1",
+        "--memory","512Mi",
+        "--timeout","3600",
+        "--port","4100",
+        "--update-env-vars",
+        "NODE_ENV=${_NODE_ENV},LOG_LEVEL=${_LOG_LEVEL},PORT=4100,MONGO_URI=${_MONGO_URI},CORS_ORIGIN=${_CORS_ORIGIN},JWT_ACCESS_SECRET=${_JWT_ACCESS_SECRET},JWT_REFRESH_SECRET=${_JWT_REFRESH_SECRET},DISCORD_SUPPORT_WEBHOOK_URL=${_DISCORD_SUPPORT_WEBHOOK_URL}"
+      ]
+    waitFor: ["push-sha","push-latest"]
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitution_option: ALLOW_LOOSE
+
+images:
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:$COMMIT_SHA"
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:latest"
