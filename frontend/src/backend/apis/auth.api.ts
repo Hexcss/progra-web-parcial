@@ -1,4 +1,3 @@
-// src/backend/apis/auth.api.ts
 import { z } from "zod";
 import { baseClient } from "../clients/base.client";
 import { safeApiCall, type SafeApiResult } from "../../utils/functions/safe-api-call.function";
@@ -19,6 +18,20 @@ export type LoginInput = z.infer<typeof ZLoginPayload>;
 
 const ZAuthResponse = z.object({ user: ZUser });
 export type AuthResponse = z.infer<typeof ZAuthResponse>;
+
+export type OAuthIntent = "login" | "signup";
+
+function buildApiUrl(path: string, params?: Record<string, string | undefined>) {
+  const base = (baseClient.defaults?.baseURL as string | undefined) ?? "";
+  const qs = params ? new URLSearchParams(Object.entries(params).filter(([, v]) => v != null) as [string, string][]) : null;
+  return `${base.replace(/\/$/, "")}${path}${qs && Array.from(qs.keys()).length ? `?${qs.toString()}` : ""}`;
+}
+
+function defaultRedirect() {
+  if (typeof window === "undefined") return "/";
+  const url = window.location.pathname + window.location.search + window.location.hash;
+  return url || "/";
+}
 
 export const AuthAPI = {
   async register(input: RegisterInput): Promise<SafeApiResult<AuthResponse>> {
@@ -66,10 +79,24 @@ export const AuthAPI = {
 
   async fetchWsTicket(): Promise<SafeApiResult<string>> {
     return safeApiCall(async () => {
-      const res = await baseClient.get("/auth/ws-ticket", {
-        withCredentials: true,
-      });
-      return res.data;
+      const res = await baseClient.get("/auth/ws-ticket", { withCredentials: true });
+      return res.data?.token as string;
     });
+  },
+
+  startGoogleOAuth(intent: OAuthIntent = "login", redirect?: string) {
+    const url = buildApiUrl("/auth/oauth/google/start", {
+      intent,
+      redirect: redirect ?? defaultRedirect(),
+    });
+    if (typeof window !== "undefined") window.location.href = url;
+  },
+
+  startGithubOAuth(intent: OAuthIntent = "login", redirect?: string) {
+    const url = buildApiUrl("/auth/oauth/github/start", {
+      intent,
+      redirect: redirect ?? defaultRedirect(),
+    });
+    if (typeof window !== "undefined") window.location.href = url;
   },
 };

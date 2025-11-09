@@ -24,6 +24,7 @@ import { Github, KeyRound, Mail, ArrowRight } from "lucide-react";
 import { useAuthActions } from "../../../context/UserContext";
 import { useState } from "react";
 import GoogleIcon from "../../../components/Icons/GoogleIcon";
+import { startGoogleOAuth, startGithubOAuth } from "../../../queries/auth.queries";
 
 const ZLoginSchema = z.object({
   email: z.string().email({ message: "Por favor, introduce un email válido." }),
@@ -36,6 +37,7 @@ export default function LoginPage() {
   const theme = useTheme();
   const { login, getPostLoginRedirect, clearPostLoginRedirect } = useAuthActions();
   const [apiError, setApiError] = useState<string | null>(null);
+  const [oauthLoading, setOauthLoading] = useState<"google" | "github" | null>(null);
 
   const {
     control,
@@ -56,6 +58,20 @@ export default function LoginPage() {
     } catch (error: any) {
       setApiError(error?.message || "Ocurrió un error inesperado. Por favor, intenta de nuevo.");
     }
+  };
+
+  const doGoogle = () => {
+    if (oauthLoading) return;
+    setOauthLoading("google");
+    const redirect = getPostLoginRedirect() || "/market";
+    startGoogleOAuth("login", redirect);
+  };
+
+  const doGithub = () => {
+    if (oauthLoading) return;
+    setOauthLoading("github");
+    const redirect = getPostLoginRedirect() || "/market";
+    startGithubOAuth("login", redirect);
   };
 
   return (
@@ -94,7 +110,7 @@ export default function LoginPage() {
             overflow: "hidden",
           }}
         >
-          {isSubmitting && (
+          {(isSubmitting || !!oauthLoading) && (
             <LinearProgress
               color="warning"
               sx={{
@@ -225,7 +241,7 @@ export default function LoginPage() {
                   size="large"
                   loading={isSubmitting}
                   endIcon={<ArrowRight />}
-                  sx={{ textTransform: "none", fontSize: "1.05rem", py: 1.25 }}
+                  sx={{ textTransform: "none", fontSize: "1.05rem", py: 1.25, color: "white" }}
                 >
                   Entrar
                 </LoadingButton>
@@ -237,19 +253,23 @@ export default function LoginPage() {
                     fullWidth
                     variant="outlined"
                     color="inherit"
+                    onClick={doGoogle}
+                    disabled={!!oauthLoading}
                     sx={{ borderColor: "divider", textTransform: "none", display: "flex", gap: 1 }}
                   >
                     <GoogleIcon sx={{ width: 20 }} />
-                    Google
+                    {oauthLoading === "google" ? "Redirigiendo…" : "Google"}
                   </Button>
                   <Button
                     fullWidth
                     variant="outlined"
                     color="inherit"
                     startIcon={<Github />}
+                    onClick={doGithub}
+                    disabled={!!oauthLoading}
                     sx={{ borderColor: "divider", textTransform: "none" }}
                   >
-                    GitHub
+                    {oauthLoading === "github" ? "Redirigiendo…" : "GitHub"}
                   </Button>
                 </Stack>
 
