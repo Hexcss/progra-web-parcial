@@ -1,6 +1,5 @@
-// src/queries/auth.queries.ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AuthAPI, type RegisterInput, type LoginInput } from "../backend/apis/auth.api";
+import { AuthAPI, type RegisterInput, type LoginInput, type OAuthIntent } from "../backend/apis/auth.api";
 import { unwrapApiCall } from "../utils/functions/unwrap-api-call.function";
 import type { Session, User } from "../schemas/auth.schemas";
 
@@ -48,4 +47,12 @@ export function useLogoutMutation() {
       qc.clear();
     },
   });
+}
+
+export function startGoogleOAuth(intent: OAuthIntent = "login", redirect?: string) {
+  AuthAPI.startGoogleOAuth(intent, redirect);
+}
+
+export function startGithubOAuth(intent: OAuthIntent = "login", redirect?: string) {
+  AuthAPI.startGithubOAuth(intent, redirect);
 }

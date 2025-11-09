@@ -25,6 +25,7 @@ import { User, KeyRound, Mail, ArrowRight, Github } from "lucide-react";
 import { useRegisterMutation } from "../../../queries/auth.queries";
 import { useAuthActions } from "../../../context/UserContext";
 import GoogleIcon from "../../../components/Icons/GoogleIcon";
+import { startGoogleOAuth, startGithubOAuth } from "../../../queries/auth.queries";
 
 const ZRegisterSchema = z.object({
   displayName: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }),
@@ -39,6 +40,7 @@ export default function SignupPage() {
   const { login, getPostLoginRedirect, clearPostLoginRedirect } = useAuthActions();
   const registerMutation = useRegisterMutation();
   const [apiError, setApiError] = useState<string | null>(null);
+  const [oauthLoading, setOauthLoading] = useState<"google" | "github" | null>(null);
 
   const {
     control,
@@ -53,15 +55,27 @@ export default function SignupPage() {
     setApiError(null);
     try {
       await registerMutation.mutateAsync(data);
-      // Inicia sesión automáticamente tras registrarte
       await login({ email: data.email, password: data.password });
-
       const redirectPath = getPostLoginRedirect() || "/market";
       clearPostLoginRedirect();
       navigate(redirectPath, { replace: true });
     } catch (error: any) {
       setApiError(error?.message || "Ocurrió un error inesperado. Por favor, intenta de nuevo.");
     }
+  };
+
+  const doGoogle = () => {
+    if (oauthLoading) return;
+    setOauthLoading("google");
+    const redirect = getPostLoginRedirect() || "/market";
+    startGoogleOAuth("signup", redirect);
+  };
+
+  const doGithub = () => {
+    if (oauthLoading) return;
+    setOauthLoading("github");
+    const redirect = getPostLoginRedirect() || "/market";
+    startGithubOAuth("signup", redirect);
   };
 
   return (
@@ -100,7 +114,7 @@ export default function SignupPage() {
             overflow: "hidden",
           }}
         >
-          {(isSubmitting || registerMutation.isPending) && (
+          {(isSubmitting || registerMutation.isPending || !!oauthLoading) && (
             <LinearProgress
               color="warning"
               sx={{
@@ -121,7 +135,6 @@ export default function SignupPage() {
             alignItems="stretch"
             justifyContent="space-between"
           >
-            {/* Lado izquierdo: branding y texto — igual que login */}
             <Stack
               spacing={1.25}
               sx={{
@@ -174,7 +187,6 @@ export default function SignupPage() {
               </Typography>
             </Stack>
 
-            {/* Lado derecho: formulario */}
             <Box sx={{ flex: 0.95 }}>
               <Stack spacing={2.25} component="form" onSubmit={handleSubmit(onSubmit)}>
                 {apiError && <Alert severity="error">{apiError}</Alert>}
@@ -255,7 +267,7 @@ export default function SignupPage() {
                   size="large"
                   loading={isSubmitting || registerMutation.isPending}
                   endIcon={<ArrowRight />}
-                  sx={{ textTransform: "none", fontSize: "1.05rem", py: 1.25 }}
+                  sx={{ textTransform: "none", fontSize: "1.05rem", py: 1.25, color: "white" }}
                 >
                   Crear Cuenta
                 </LoadingButton>
@@ -267,19 +279,23 @@ export default function SignupPage() {
                     fullWidth
                     variant="outlined"
                     color="inherit"
+                    onClick={doGoogle}
+                    disabled={!!oauthLoading}
                     sx={{ borderColor: "divider", textTransform: "none", display: "flex", gap: 1 }}
                   >
                     <GoogleIcon sx={{ width: 20 }} />
-                    Google
+                    {oauthLoading === "google" ? "Redirigiendo…" : "Google"}
                   </Button>
                   <Button
                     fullWidth
                     variant="outlined"
                     color="inherit"
                     startIcon={<Github size={18} />}
+                    onClick={doGithub}
+                    disabled={!!oauthLoading}
                     sx={{ borderColor: "divider", textTransform: "none" }}
                   >
-                    GitHub
+                    {oauthLoading === "github" ? "Redirigiendo…" : "GitHub"}
                   </Button>
                 </Stack>
 
