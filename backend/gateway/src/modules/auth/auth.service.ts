@@ -5,12 +5,9 @@ import {
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
-import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Role } from '../../common/enums/role.enum';
-import { verifyHash } from '../../common/crypto/argon2.util';
-import { randomUUID } from 'node:crypto';
 
 type Tokens = { accessToken: string; refreshToken: string };
 
@@ -19,7 +16,6 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    private readonly users: UsersService,
     private readonly jwt: JwtService,
     private readonly cfg: ConfigService,
   ) {}
@@ -87,50 +83,10 @@ export class AuthService {
     }
   }
 
-  /** 🔁 Firebase-like refresh: verify refresh token, then issue a new pair (rotate). */
   async refreshWithToken(refreshToken: string): Promise<Tokens & { user: any }> {
     const decoded = await this.verifyToken(refreshToken, true);
     const userPayload = { _id: decoded.sub, email: decoded.email, role: decoded.role as Role };
     const tokens = await this.signTokens(userPayload);
     return { ...tokens, user: this.publicUser(userPayload) };
-  }
-
-  async register(email: string, password: string, displayName: string) {
-    const normEmail = email.trim().toLowerCase();
-    const user = await this.users.createUser({ email: normEmail, password, displayName });
-    const tokens = await this.signTokens(user);
-    // no server-side RT persistence anymore
-    return { user: this.publicUser(user), ...tokens };
-  }
-
-  async login(email: string, password: string) {
-    const normEmail = email.trim().toLowerCase();
-    const user = await this.users.findByEmail(normEmail);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
-
-    const ok = await verifyHash(user.passwordHash, password);
-    if (!ok) throw new UnauthorizedException('Invalid credentials');
-
-    const tokens = await this.signTokens(user);
-    return { user: this.publicUser(user), ...tokens };
-  }
-
-  async logout() {
-    return { success: true };
-  }
-
-  async createWsTicket(user: { sub: string; email: string; role: Role }): Promise<string> {
-    const payload = {
-      sub: user.sub,
-      email: user.email,
-      role: user.role,
-      aud: 'ws',
-      typ: 'ws',
-      jti: randomUUID(),
-    };
-    return this.jwt.signAsync(payload, {
-      secret: this.cfg.getOrThrow<string>('jwt.accessSecret'),
-      expiresIn: 60, // 60s ticket
-    });
   }
 }

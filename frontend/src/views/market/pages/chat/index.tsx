@@ -1,5 +1,5 @@
-// src/views/market/pages/chat/index.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+// src/views/market/pages/support/index.tsx
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   Box,
   Stack,
@@ -31,86 +31,181 @@ const STATUS_LABELS: Record<string, string> = {
   closed: "Cerrado",
 };
 
+function sortRooms(a: ChatRoom, b: ChatRoom) {
+  const ak = a.lastMessageAt || a.updatedAt || a.createdAt;
+  const bk = b.lastMessageAt || b.updatedAt || b.createdAt;
+  return bk.localeCompare(ak);
+}
+function mergeRooms(prev: ChatRoom[], incoming: ChatRoom[]) {
+  const map = new Map<string, ChatRoom>();
+  for (const r of prev) map.set(r._id, r);
+  for (const r of incoming) {
+    const ex = map.get(r._id);
+    map.set(r._id, { ...(ex || {}), ...r });
+  }
+  return Array.from(map.values()).sort(sortRooms);
+}
+const appendUnique = (prev: ChatMessage[], msg: ChatMessage) =>
+  prev.some((m) => m._id === msg._id) ? prev : [...prev, msg];
+
 export default function MarketSupportChatPage() {
   const theme = useTheme();
   const user = useUser();
+
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(true);
+
   const [selected, setSelected] = useState<string | null>(null);
+  const selectedRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
   const [composer, setComposer] = useState("");
   const [creating, setCreating] = useState(false);
   const [initialText, setInitialText] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  const awaitConnected = useCallback(async () => {
+    if (SupportAPI.isConnected) return;
+    await new Promise<void>((resolve) => {
+      const off = SupportAPI.onConnect(() => {
+        off();
+        resolve();
+      });
+      SupportAPI.connect();
+      const tick = setInterval(() => {
+        if (SupportAPI.isConnected) {
+          clearInterval(tick);
+          off();
+          resolve();
+        }
+      }, 100);
+      setTimeout(() => {
+        clearInterval(tick);
+        off();
+        resolve();
+      }, 20000);
+    });
+  }, []);
+
   useEffect(() => {
     SupportAPI.connect();
-    return () => SupportAPI.disconnect();
+    return () => {
+      SupportAPI.disconnect();
+    };
   }, []);
 
+  const initialLoad = useCallback(async () => {
+    setLoadingRooms(true);
+    try {
+      await awaitConnected();
+      const res = await SupportAPI.listMine({ page: 1, limit: 50 });
+      const items = res.items || [];
+      setRooms(items.slice().sort(sortRooms));
+      await SupportAPI.subscribeMine();
+      const open = items.find((r) => r.status !== "closed");
+      const chosen = open?._id || items?.[0]?._id || null;
+      setSelected(chosen);
+      if (chosen) await SupportAPI.subscribe(chosen);
+    } finally {
+      setLoadingRooms(false);
+    }
+  }, [awaitConnected]);
+
   useEffect(() => {
-    let unsubRoom: (() => void) | null = null;
-    let unsubMsg: (() => void) | null = null;
+    void initialLoad();
+  }, [initialLoad]);
 
-    unsubRoom = SupportAPI.onRoom(({ type, room }) => {
-      setRooms((prev) => {
-        const idx = prev.findIndex((r) => r._id === room._id);
-        if (idx >= 0) {
-          const next = prev.slice();
-          next[idx] = room;
-          return next.sort((a, b) => (b.lastMessageAt || b.updatedAt).localeCompare(a.lastMessageAt || a.updatedAt));
-        }
-        return [room, ...prev].sort((a, b) => (b.lastMessageAt || b.updatedAt).localeCompare(a.lastMessageAt || a.updatedAt));
-      });
-      if (type === "created" && !selected) setSelected(room._id);
-      if (selected === room._id) {
-        setRooms((prev) => prev.map((r) => (r._id === room._id ? room : r)));
-      }
-    });
+  useEffect(() => {
+    let offRoom: (() => void) | undefined;
+    let offMsg: (() => void) | undefined;
+    let offConn: (() => void) | undefined;
+    let mounted = true;
 
-    unsubMsg = SupportAPI.onMessage(({ message }) => {
-      setMessages((prev) => (selected === message.roomId ? [...prev, message] : prev));
-      setRooms((prev) => {
-        const next = prev.slice();
-        const idx = next.findIndex((r) => r._id === message.roomId);
-        if (idx >= 0) {
-          next[idx] = { ...next[idx], lastMessageAt: message.createdAt, updatedAt: message.createdAt };
-          next.sort((a, b) => (b.lastMessageAt || b.updatedAt).localeCompare(a.lastMessageAt || a.updatedAt));
+    (async () => {
+      await awaitConnected();
+      if (!mounted) return;
+
+      offRoom = SupportAPI.onRoom(({ type, room }) => {
+        setRooms((prev) => mergeRooms(prev, [room]));
+        if (type === "created" && !selectedRef.current) setSelected(room._id);
+        if (selectedRef.current === room._id) {
+          setRooms((prev) => prev.map((r) => (r._id === room._id ? room : r)).sort(sortRooms));
         }
-        return next;
       });
-    });
+
+      offMsg = SupportAPI.onMessage(({ message }) => {
+        setRooms((prev) =>
+          prev
+            .map((r) => (r._id === message.roomId ? { ...r, lastMessageAt: message.createdAt, updatedAt: message.createdAt } : r))
+            .sort(sortRooms)
+        );
+        if (selectedRef.current === message.roomId) {
+          setMessages((prev) => appendUnique(prev, message));
+        }
+      });
+
+      offConn = SupportAPI.onConnect(async () => {
+        try {
+          await SupportAPI.subscribeMine();
+          const sel = selectedRef.current;
+          if (sel) await SupportAPI.subscribe(sel);
+          const res = await SupportAPI.listMine({ page: 1, limit: 50 });
+          setRooms((prev) => mergeRooms(prev, res.items || []));
+          if (sel) {
+            const hist = await SupportAPI.history(sel, 1, 200);
+            setMessages(hist.items || []);
+          }
+        } catch {}
+      });
+    })();
 
     return () => {
-      unsubRoom?.();
-      unsubMsg?.();
+      mounted = false;
+      offRoom?.();
+      offMsg?.();
+      offConn?.();
     };
-  }, [selected]);
+  }, [awaitConnected]);
 
   useEffect(() => {
-    setLoadingRooms(true);
-    SupportAPI.listMine({ page: 1, limit: 50 })
-      .then((res) => {
-        setRooms(res.items || []);
-        const open = (res.items || []).find((r) => r.status !== "closed");
-        setSelected(open?._id || res.items?.[0]?._id || null);
-      })
-      .catch(() => setRooms([]))
-      .finally(() => setLoadingRooms(false));
-  }, []);
+    const id = window.setInterval(async () => {
+      try {
+        await awaitConnected();
+        const res = await SupportAPI.listMine({ page: 1, limit: 50 });
+        setRooms((prev) => mergeRooms(prev, res.items || []));
+      } catch {}
+    }, 30000);
+    return () => window.clearInterval(id);
+  }, [awaitConnected]);
 
   useEffect(() => {
     if (!selected) {
       setMessages([]);
       return;
     }
-    setLoadingHistory(true);
-    SupportAPI.history(selected, 1, 200)
-      .then((res) => setMessages(res.items || []))
-      .catch(() => setMessages([]))
-      .finally(() => setLoadingHistory(false));
-  }, [selected]);
+    let mounted = true;
+    (async () => {
+      setLoadingHistory(true);
+      try {
+        await awaitConnected();
+        await SupportAPI.subscribe(selected);
+        const res = await SupportAPI.history(selected, 1, 200);
+        if (mounted) setMessages(res.items || []);
+      } catch {
+        if (mounted) setMessages([]);
+      } finally {
+        if (mounted) setLoadingHistory(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [selected, awaitConnected]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -125,9 +220,12 @@ export default function MarketSupportChatPage() {
     if (creating) return;
     try {
       setCreating(true);
+      await awaitConnected();
       const room = await SupportAPI.create(initialText.trim() || undefined);
+      await SupportAPI.subscribe(room._id);
       setInitialText("");
       setSelected(room._id);
+      setRooms((prev) => mergeRooms(prev, [room]));
       showSnackbar?.("Chat creado. Un agente te atenderá pronto.", "success");
     } catch (e: any) {
       showSnackbar?.(e?.message ?? "No se pudo crear el chat", "error");
@@ -141,7 +239,16 @@ export default function MarketSupportChatPage() {
     const text = composer.trim();
     setComposer("");
     try {
-      await SupportAPI.send(selectedRoom._id, text);
+      await awaitConnected();
+      const sent = await SupportAPI.send(selectedRoom._id, text);
+      setMessages((prev) => appendUnique(prev, sent));
+      setRooms((prev) =>
+        prev
+          .map((r) =>
+            r._id === sent.roomId ? { ...r, lastMessageAt: sent.createdAt, updatedAt: sent.createdAt } : r
+          )
+          .sort(sortRooms)
+      );
     } catch (e: any) {
       setComposer(text);
       showSnackbar?.(e?.message ?? "No se pudo enviar el mensaje", "error");
@@ -156,20 +263,12 @@ export default function MarketSupportChatPage() {
   };
 
   return (
-    <Box
-      sx={{
-        px: { xs: 2, md: 3 },
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
+    <Box sx={{ px: { xs: 2, md: 3 }, position: "relative", overflow: "hidden" }}>
       <Stack spacing={1.5} sx={{ mb: 3 }}>
         <Typography variant="h4" component="h1" fontWeight={800}>
           Soporte
         </Typography>
-        <Typography color="text.secondary">
-          Chatea con nuestro equipo. Inicia un nuevo chat o continúa uno existente.
-        </Typography>
+        <Typography color="text.secondary">Chatea con nuestro equipo. Inicia un nuevo chat o continúa uno existente.</Typography>
       </Stack>
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
@@ -185,15 +284,8 @@ export default function MarketSupportChatPage() {
         >
           <CardContent sx={{ pb: 1.25 }}>
             <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Typography variant="subtitle1" fontWeight={800}>
-                Tus chats
-              </Typography>
-              <Button
-                size="small"
-                startIcon={<AddCommentIcon />}
-                onClick={() => setSelected(null)}
-                sx={{ textTransform: "none" }}
-              >
+              <Typography variant="subtitle1" fontWeight={800}>Tus chats</Typography>
+              <Button size="small" startIcon={<AddCommentIcon />} onClick={() => setSelected(null)} sx={{ textTransform: "none" }}>
                 Nuevo
               </Button>
             </Stack>
@@ -231,12 +323,8 @@ export default function MarketSupportChatPage() {
                             <ChatBubbleOutlineIcon fontSize="small" />
                           </Avatar>
                           <Stack sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="subtitle2" fontWeight={700} noWrap>
-                              {STATUS_LABELS[r.status] ?? r.status}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" noWrap>
-                              {new Date(last).toLocaleString("es-ES")}
-                            </Typography>
+                            <Typography variant="subtitle2" fontWeight={700} noWrap>{STATUS_LABELS[r.status] ?? r.status}</Typography>
+                            <Typography variant="caption" color="text.secondary" noWrap>{new Date(last).toLocaleString("es-ES")}</Typography>
                           </Stack>
                           <Chip size="small" label={STATUS_LABELS[r.status] ?? r.status} color={statusColor(r.status) as any} variant="outlined" />
                         </Stack>
@@ -269,9 +357,7 @@ export default function MarketSupportChatPage() {
                 <Avatar sx={{ bgcolor: alpha(theme.palette.primary.main, 0.12), color: theme.palette.primary.main, width: 56, height: 56 }}>
                   <SupportAgentIcon />
                 </Avatar>
-                <Typography variant="h6" fontWeight={800}>
-                  Inicia un chat de soporte
-                </Typography>
+                <Typography variant="h6" fontWeight={800}>Inicia un chat de soporte</Typography>
                 <Typography color="text.secondary" sx={{ maxWidth: 520 }}>
                   Cuéntanos brevemente tu problema y un agente te responderá lo antes posible.
                 </Typography>
@@ -284,12 +370,7 @@ export default function MarketSupportChatPage() {
                   value={initialText}
                   onChange={(e) => setInitialText(e.target.value)}
                 />
-                <Button
-                  variant="contained"
-                  onClick={handleCreate}
-                  disabled={creating}
-                  sx={{ textTransform: "none" }}
-                >
+                <Button variant="contained" onClick={handleCreate} disabled={creating} sx={{ textTransform: "none" }}>
                   Empezar chat
                 </Button>
               </Stack>
@@ -313,12 +394,8 @@ export default function MarketSupportChatPage() {
                     <SupportAgentIcon fontSize="small" />
                   </Avatar>
                   <Stack>
-                    <Typography variant="subtitle2" fontWeight={800}>
-                      Chat con soporte
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      #{selectedRoom._id.slice(-6).toUpperCase()}
-                    </Typography>
+                    <Typography variant="subtitle2" fontWeight={800}>Chat con soporte</Typography>
+                    <Typography variant="caption" color="text.secondary">#{selectedRoom._id.slice(-6).toUpperCase()}</Typography>
                   </Stack>
                 </Stack>
                 <Chip
@@ -362,16 +439,12 @@ export default function MarketSupportChatPage() {
                             borderRadius: 2,
                             px: 1.5,
                             py: 1,
-                            backgroundColor: mine
-                              ? alpha(theme.palette.primary.main, 0.14)
-                              : theme.palette.background.paper,
+                            backgroundColor: mine ? alpha(theme.palette.primary.main, 0.14) : theme.palette.background.paper,
                             border: `1px solid ${mine ? alpha(theme.palette.primary.main, 0.35) : theme.palette.divider}`,
                             boxShadow: mine ? `0 4px 14px ${alpha(theme.palette.primary.main, 0.12)}` : "none",
                           }}
                         >
-                          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                            {m.body}
-                          </Typography>
+                          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{m.body}</Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25, textAlign: mine ? "right" : "left" }}>
                             {new Date(m.createdAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
                           </Typography>
@@ -380,9 +453,7 @@ export default function MarketSupportChatPage() {
                     );
                   })}
                 {!loadingHistory && messages.length === 0 && (
-                  <Typography variant="body2" color="text.secondary">
-                    No hay mensajes todavía.
-                  </Typography>
+                  <Typography variant="body2" color="text.secondary">No hay mensajes todavía.</Typography>
                 )}
               </Box>
 
@@ -390,9 +461,7 @@ export default function MarketSupportChatPage() {
               <Box sx={{ p: 1.25 }}>
                 <Stack direction="row" spacing={1}>
                   <TextField
-                    placeholder={
-                      selectedRoom.status === "closed" ? "El chat está cerrado" : "Escribe tu mensaje…"
-                    }
+                    placeholder={selectedRoom.status === "closed" ? "El chat está cerrado" : "Escribe tu mensaje…"}
                     fullWidth
                     value={composer}
                     onChange={(e) => setComposer(e.target.value)}
@@ -404,12 +473,7 @@ export default function MarketSupportChatPage() {
                     }}
                     disabled={selectedRoom.status === "closed"}
                   />
-                  <IconButton
-                    color="primary"
-                    onClick={handleSend}
-                    disabled={!canSend}
-                    sx={{ width: 44, height: 44 }}
-                  >
+                  <IconButton color="primary" onClick={handleSend} disabled={!canSend} sx={{ width: 44, height: 44 }}>
                     <SendIcon />
                   </IconButton>
                 </Stack>

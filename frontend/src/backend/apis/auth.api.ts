@@ -63,4 +63,13 @@ export const AuthAPI = {
       return ZSession.parse(res.data);
     });
   },
+
+  async fetchWsTicket(): Promise<SafeApiResult<string>> {
+    return safeApiCall(async () => {
+      const res = await baseClient.get("/auth/ws-ticket", {
+        withCredentials: true,
+      });
+      return res.data;
+    });
+  },
 };
