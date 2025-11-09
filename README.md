@@ -2,6 +2,8 @@
 
 > Proyecto universitario de arquitectura web moderna con **Frontend (React + Vite + MUI)**, **API REST (NestJS)**, **Gateway WebSocket (NestJS + Socket.IO)** y **MongoDB**. Desplegado en **Google Cloud Run** con **CI/CD en GitHub Actions** y autenticación mediante **JWT en cookies HttpOnly** y **OAuth (Google y GitHub)**.
 
+- Link del Repositorio: https://github.com/Hexcss/progra-web-parcial.git
+- Link del Sitio: https://store.hexcss.com
 
 ## Índice
 
