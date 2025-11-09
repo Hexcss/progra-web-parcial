@@ -17,6 +17,7 @@ type PortalLayoutProps = {
   children: React.ReactNode;
   noMainContentPadding?: boolean;
   contentZoomable?: boolean;
+  allowScrolling?: boolean;
 };
 
 const PortalLayout: React.FC<PortalLayoutProps> = ({
@@ -26,6 +27,7 @@ const PortalLayout: React.FC<PortalLayoutProps> = ({
   lateralWidth = 200,
   noMainContentPadding = false,
   contentZoomable = false,
+  allowScrolling = false,
 }) => {
   useSignals();
 
@@ -48,7 +50,10 @@ const PortalLayout: React.FC<PortalLayoutProps> = ({
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
-      const editable = tag === "input" || tag === "textarea" || target?.getAttribute("contenteditable") === "true";
+      const editable =
+        tag === "input" ||
+        tag === "textarea" ||
+        target?.getAttribute("contenteditable") === "true";
       if (editable) return;
       if (e.ctrlKey && e.altKey && (e.key === "z" || e.key === "Z")) {
         e.preventDefault();
@@ -59,7 +64,10 @@ const PortalLayout: React.FC<PortalLayoutProps> = ({
     return () => window.removeEventListener("keydown", onKey);
   }, [contentZoomable]);
 
-  const paperPadding = useMemo(() => (noMainContentPadding ? 0 : "24px"), [noMainContentPadding]);
+  const paperPadding = useMemo(
+    () => (noMainContentPadding ? 0 : "24px"),
+    [noMainContentPadding]
+  );
 
   return (
     <>
@@ -131,7 +139,16 @@ const PortalLayout: React.FC<PortalLayoutProps> = ({
             </Box>
           )}
 
-          <Box sx={{ position: "relative", flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <Box
+            sx={{
+              position: "relative",
+              flex: 1,
+              minWidth: 0,
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
             <AnimatePresence>
               {zoomed && (
                 <motion.div
@@ -166,7 +183,7 @@ const PortalLayout: React.FC<PortalLayoutProps> = ({
                 mb: 3,
                 display: "flex",
                 flexDirection: "column",
-                overflow: "auto",
+                overflow: allowScrolling ? "auto" : "hidden",
                 p: paperPadding,
                 isolation: "isolate",
                 contain: "layout paint",
