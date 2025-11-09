@@ -51,6 +51,13 @@ export class User {
   })
   @Prop()
   refreshTokenHash?: string;
+
+  @ApiPropertyOptional({
+    description: 'Whether the email is verified',
+    example: false,
+  })
+  @Prop({ type: Boolean, default: false })
+  emailVerified?: boolean;
 }
 
 export type UserDocument = HydratedDocument<User>;

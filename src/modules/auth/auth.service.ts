@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { Role } from '../../common/enums/role.enum';
 import { verifyHash } from '../../common/crypto/argon2.util';
 import { randomUUID, randomBytes } from 'node:crypto';
+import { EmailService } from '../../shared/email/email.service';
 
 type Tokens = { accessToken: string; refreshToken: string };
 type OAuthIntent = 'login' | 'signup';
@@ -24,6 +25,7 @@ export class AuthService {
     private readonly users: UsersService,
     private readonly jwt: JwtService,
     private readonly cfg: ConfigService,
+    private readonly email: EmailService,
   ) {}
 
   private toSeconds(v: string | undefined, fallbackSeconds: number): number {
@@ -38,8 +40,8 @@ export class AuthService {
     return n * mult;
   }
 
-  private async signTokens(user: { _id: any; email: string; role: Role }): Promise<Tokens> {
-    const payload = { sub: String(user._id), email: user.email, role: user.role };
+  private async signTokens(user: { _id: any; email: string; role: Role; emailVerified?: boolean }): Promise<Tokens> {
+    const payload = { sub: String(user._id), email: user.email, role: user.role, emailVerified: !!user.emailVerified };
     const accessSeconds = this.toSeconds(this.cfg.get<string>('jwt.accessExpires'), 15 * 60);
     const refreshSeconds = this.toSeconds(this.cfg.get<string>('jwt.refreshExpires'), 7 * 86400);
 
@@ -62,6 +64,7 @@ export class AuthService {
       email: u.email,
       displayName: u.displayName,
       role: u.role,
+      emailVerified: !!u.emailVerified,
       createdAt: u.createdAt,
       updatedAt: u.updatedAt,
     };
@@ -90,7 +93,7 @@ export class AuthService {
 
   async refreshWithToken(refreshToken: string): Promise<Tokens & { user: any }> {
     const decoded = await this.verifyToken(refreshToken, true);
-    const userPayload = { _id: decoded.sub, email: decoded.email, role: decoded.role as Role };
+    const userPayload = { _id: decoded.sub, email: decoded.email, role: decoded.role as Role, emailVerified: !!decoded.emailVerified };
     const tokens = await this.signTokens(userPayload);
     return { ...tokens, user: this.publicUser(userPayload) };
   }
@@ -133,6 +136,42 @@ export class AuthService {
 
   private generateStrongPassword(len = 32) {
     return randomBytes(len).toString('base64url');
+  }
+
+  private getEmailVerifySecret() {
+    return this.cfg.get<string>('jwt.emailVerifySecret') || this.cfg.getOrThrow<string>('jwt.accessSecret');
+  }
+
+  async maybeSendEmailVerification(user: { _id: any; email: string; displayName?: string }, serverOrigin: string) {
+    const apiKey = this.cfg.get<string>('RESEND_API_KEY') ?? '';
+    if (!apiKey) {
+      return { attempted: false, sent: false, id: null, error: null };
+    }
+    const token = await this.jwt.signAsync(
+      { sub: String(user._id), email: user.email, typ: 'email_verify' },
+      { secret: this.getEmailVerifySecret(), expiresIn: this.toSeconds(this.cfg.get<string>('email.verifyExpires') ?? '2d', 172800) }
+    );
+    const verifyUrl = `${serverOrigin.replace(/\/+$/, '')}/auth/verify-email?token=${encodeURIComponent(token)}`;
+    return this.email.sendEmailVerification({
+      to: user.email,
+      link: verifyUrl,
+      displayName: user.displayName || user.email,
+    });
+  }
+
+  async verifyEmailToken(token: string): Promise<boolean> {
+    const decoded: any = await this.jwt.verifyAsync(token, { secret: this.getEmailVerifySecret() });
+    if (!decoded?.sub || decoded?.typ !== 'email_verify') throw new UnauthorizedException('Invalid token');
+    const user = await this.users.findByEmail(decoded.email);
+    if (!user || String(user._id) !== String(decoded.sub)) throw new UnauthorizedException('Invalid token');
+    if (!user.emailVerified) {
+      if (typeof (this.users as any).updateById === 'function') {
+        await (this.users as any).updateById(String(user._id), { emailVerified: true });
+      } else if (typeof (this.users as any).markEmailVerified === 'function') {
+        await (this.users as any).markEmailVerified(String(user._id));
+      }
+    }
+    return true;
   }
 
   private async oauthLoginOrSignup(
