@@ -28,7 +28,7 @@ async function bootstrap() {
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);
 
-      const allowed = origins.length > 0 ? origins : ['http://localhost:4000'];
+      const allowed = origins.length > 0 ? origins : ['http://localhost:5173', 'https://store.hexcss.com'];
       if (allowed.includes(origin)) return cb(null, true);
 
       return cb(new Error(`Not allowed by CORS: ${origin}`), false);
