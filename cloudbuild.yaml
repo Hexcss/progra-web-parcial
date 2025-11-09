@@ -1,0 +1,79 @@
+substitutions:
+  _SERVICE_NAME: "api-template"
+  _REGION: "europe-west1"
+  _REPO_NAME: "api-template"
+  _IMAGE_NAME: "api"
+  _PORT: "80"
+  _NODE_ENV: "dev"
+  _API_URL: "splitpurse-api.hexcss.com"
+
+steps:
+  - id: "build"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "--build-arg", "API_URL=${_API_URL}","WS_URL=${_WS_URL}"
+        "-t",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:$COMMIT_SHA",
+        "-t",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:latest",
+        "."
+      ]
+
+  # ⚡ Pre-pull Cloud SDK slim image
+  - id: "pre-pull-cloudsdk"
+    name: "gcr.io/cloud-builders/docker"
+    args: ["pull", "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"]
+    waitFor: ["-"]
+
+  # 📦 Push SHA-tagged image
+  - id: "push-sha"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:$COMMIT_SHA"
+      ]
+    waitFor: ["build"]
+
+  # 📦 Push latest-tagged image
+  - id: "push-latest"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:latest"
+      ]
+    waitFor: ["build"]
+
+  # 🚀 Deploy to Cloud Run with env suffix
+  - id: "deploy"
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    entrypoint: gcloud
+    args:
+      [
+        "run",
+        "deploy",
+        "${_SERVICE_NAME}-${_NODE_ENV}",
+        "--image",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:$COMMIT_SHA",
+        "--region",
+        "${_REGION}",
+        "--platform",
+        "managed",
+        "--allow-unauthenticated",
+        "--port",
+        "${_PORT}",
+        "--quiet",
+        "--update-env-vars",
+        "NODE_ENV=${_NODE_ENV}"
+      ]
+    waitFor: ["push-sha", "push-latest", "pre-pull-cloudsdk"]
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+images:
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:$COMMIT_SHA"
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:latest"
