@@ -22,6 +22,7 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 
 ARG API_URL
+ARG WS_URL
 ENV VITE_API_URL=${API_URL}
 ENV VITE_SUPPORT_WS_URL=${WS_URL}
 
