@@ -48,7 +48,7 @@ export function useUpdateOrderStatusMutation(id: string) {
     const qc = useQueryClient()
     return useMutation<Order, Error, UpdateOrderPayload>({
         mutationFn: async (input) => unwrapApiCall(await OrdersAPI.updateStatus(id, input)),
-        onSuccess: (order) => {
+        onSuccess: () => {
             qc.invalidateQueries({ queryKey: ordersKey.byId(id) })
             qc.invalidateQueries({ queryKey: ordersKey.all({}) })
             qc.invalidateQueries({ queryKey: ordersKey.mine({}) })

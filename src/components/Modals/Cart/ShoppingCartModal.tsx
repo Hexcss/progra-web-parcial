@@ -73,8 +73,7 @@ export default function ShoppingCartModal({ onCheckout }: Props) {
       const order = await createOrder.mutateAsync(payload);
       showSnackbar("Pedido creado correctamente", "success");
       clear();
-      // If you want to navigate to a detail page later, uncomment:
-      // navigate(`/market/orders/${encodeURIComponent(order._id)}`);
+      navigate(`/market/orders/${encodeURIComponent(order._id)}`);
       return true;
     } catch (e: any) {
       showSnackbar(e?.message || "No se pudo crear el pedido", "error");

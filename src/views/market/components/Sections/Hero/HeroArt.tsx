@@ -6,7 +6,6 @@ import { LazyLottie } from "../../../../../components/Animations/LazyLottie";
 
 export const HeroArt = memo(function HeroArt({
     variants,
-    mdUp,
 }: {
     variants: Variants;
     mdUp: boolean;
