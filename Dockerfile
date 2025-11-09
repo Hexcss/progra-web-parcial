@@ -23,7 +23,7 @@ FROM base AS builder
 
 ARG API_URL
 ENV VITE_API_URL=${API_URL}
-VITE_SUPPORT_WS_URL=${WS_URL}
+ENV VITE_SUPPORT_WS_URL=${WS_URL}
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
