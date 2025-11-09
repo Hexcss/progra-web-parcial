@@ -10,6 +10,8 @@ interface FrontendTableLayoutProps {
   extraActions?: React.ReactNode;
   extraActionsLeft?: React.ReactNode;
   children: React.ReactNode;
+  inheritPortalScroll?: boolean;
+  allowInnerScroll?: boolean;
 }
 
 export const TableLayout: React.FC<FrontendTableLayoutProps> = ({
@@ -20,60 +22,90 @@ export const TableLayout: React.FC<FrontendTableLayoutProps> = ({
   extraActions,
   extraActionsLeft,
   children,
-}) => (
-  <Box
-    sx={{
-      width: "100%",
-      minWidth: 0,
-      minHeight: 0,
-      flex: 1,
-      display: "flex",
-      flexDirection: "column",
-    }}
-  >
-    <Stack
-      direction="row"
-      justifyContent="space-between"
-      alignItems="center"
-      mb={2}
-      sx={{ flexShrink: 0 }}
-    >
-      <Stack direction="row" spacing={2} alignItems="center">
-        {title && <Typography variant="h5" fontWeight={800}>{title}</Typography>}
-        {extraActionsLeft && <Box>{extraActionsLeft}</Box>}
-      </Stack>
+  inheritPortalScroll = false,
+  allowInnerScroll = false,
+}) => {
+  const useInnerScroll = allowInnerScroll && !inheritPortalScroll;
+  const scrollingEnabled = inheritPortalScroll || useInnerScroll;
 
-      <Stack direction="row" spacing={2} alignItems="center">
-        {extraActions}
-        {addButton ? (
-          addButton
-        ) : (
-          onAdd && (
-            <Button
-              variant="text"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={onAdd}
-            >
-              {addLabel}
-            </Button>
-          )
-        )}
-      </Stack>
-    </Stack>
-
+  return (
     <Box
       sx={{
-        flex: 1,
-        minHeight: 0,
         width: "100%",
         minWidth: 0,
-        overflow: "hidden",
+        minHeight: 0,
+        flex: 1,
         display: "flex",
         flexDirection: "column",
       }}
     >
-      {children}
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          width: "100%",
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflow: useInnerScroll ? "auto" : inheritPortalScroll ? "visible" : "hidden",
+          pb: scrollingEnabled ? 2 : 0,
+        }}
+      >
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          mb={2}
+          sx={{
+            flexShrink: 0,
+            position: scrollingEnabled ? "sticky" : "static",
+            top: 0,
+            zIndex: (t) => t.zIndex.appBar,
+            bgcolor: "background.paper",
+            py: 1,
+            pb: 3,
+          }}
+        >
+          <Stack direction="row" spacing={2} alignItems="center">
+            {title && (
+              <Typography variant="h5" fontWeight={800}>
+                {title}
+              </Typography>
+            )}
+            {extraActionsLeft && <Box>{extraActionsLeft}</Box>}
+          </Stack>
+
+          <Stack direction="row" spacing={2} alignItems="center">
+            {extraActions}
+            {addButton ? (
+              addButton
+            ) : (
+              onAdd && (
+                <Button
+                  variant="text"
+                  color="primary"
+                  startIcon={<AddIcon />}
+                  onClick={onAdd}
+                >
+                  {addLabel}
+                </Button>
+              )
+            )}
+          </Stack>
+        </Stack>
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            width: "100%",
+            minWidth: 0,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {children}
+        </Box>
+      </Box>
     </Box>
-  </Box>
-);
+  );
+};
