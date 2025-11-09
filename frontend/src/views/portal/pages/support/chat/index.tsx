@@ -306,7 +306,7 @@ export default function SupportAdminChatPage() {
   );
 
   return (
-    <PortalLayout contentZoomable>
+    <PortalLayout contentZoomable allowScrolling>
       <Stack direction="row" spacing={2} sx={{ height: "calc(100vh - 160px)" }}>
         <Paper
           elevation={0}
