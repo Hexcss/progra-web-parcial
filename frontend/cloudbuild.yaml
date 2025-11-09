@@ -13,7 +13,7 @@ steps:
     args:
       [
         "build",
-        "--build-arg", "API_URL=${_API_URL}","WS_URL=${_WS_URL}"
+        "--build-arg", "API_URL=${_API_URL}","WS_URL=${_WS_URL}",
         "-t",
         "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}-${_NODE_ENV}:$COMMIT_SHA",
         "-t",

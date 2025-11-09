@@ -30,16 +30,15 @@ substitutions:
   _DISCORD_SUPPORT_WEBHOOK_URL: ""
 
 steps:
-  # 🧱 Build de la imagen (Dockerfile en backend/gateway)
   - id: "build"
     name: "gcr.io/cloud-builders/docker"
     args:
       [
         "build",
-        "-f","backend/gateway/Dockerfile",
+        "-f","Dockerfile",
         "-t","${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:$COMMIT_SHA",
         "-t","${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:latest",
-        "backend/gateway"
+        "."
       ]
 
   # 📤 Push de ambas etiquetas (sha + latest)
