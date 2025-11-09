@@ -17,33 +17,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Git
+      - name: Configure git
         run: |
           git config --global user.name 'Hexcss'
           git config --global user.email 'cadersuay.javier@gmail.com'
 
-      - name: Push changes to corresponding branches
+      - name: Push subtree splits
         env:
           REPO: ${{ github.repository }}
-          ACCESS_TOKEN: ${{ github.token }}
+          TOKEN: ${{ github.token }}
         run: |
-          FOLDERS="frontend backend/api backend/gateway"
+          set -euo pipefail
+          REMOTE="https://x-access-token:${TOKEN}@github.com/${REPO}.git"
 
-          for folder in $FOLDERS; do
-            echo "Syncing $folder"
+          folders=("frontend" "backend/api" "backend/gateway")
+          for folder in "${folders[@]}"; do
+            echo "==> Splitting '$folder'"
+            # Create a temp branch at the split commit
+            git subtree split --prefix="$folder" -b split-tmp
+            COMMIT=$(git rev-parse split-tmp)
+            echo "    split at $COMMIT"
 
-            if ! git ls-remote --heads https://x-access-token:${ACCESS_TOKEN}@github.com/${REPO}.git $folder; then
-              echo "Branch $folder does not exist, creating from master"
-              git subtree split --prefix=$folder -b $folder-branch
-              git push https://x-access-token:${ACCESS_TOKEN}@github.com/${REPO}.git $folder-branch:$folder
-              git branch -D $folder-branch
-            fi
+            echo "    pushing to remote branch '$folder'"
+            git push "$REMOTE" "split-tmp:$folder" --force
 
-            git subtree split --prefix=$folder -b temp-branch
-            git fetch https://x-access-token:${ACCESS_TOKEN}@github.com/${REPO}.git $folder:$folder || true
-            git checkout $folder || git checkout -b $folder
-            git reset --hard temp-branch
-            git push https://x-access-token:${ACCESS_TOKEN}@github.com/${REPO}.git $folder -f
-            git checkout master
-            git branch -D temp-branch
+            git branch -D split-tmp
           done
