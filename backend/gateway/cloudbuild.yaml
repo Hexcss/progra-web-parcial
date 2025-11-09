@@ -27,7 +27,7 @@ substitutions:
   _JWT_REFRESH_SECRET: "changeme-refresh"
 
   # 🔔 Webhook opcional (Discord)
-  _DISCORD_SUPPORT_WEBHOOK_URL: ""
+  _DISCORD_SUPPORT_WEBHOOK_URL: ""  
 
 steps:
   - id: "build"
@@ -68,9 +68,8 @@ steps:
         "--cpu","1",
         "--memory","512Mi",
         "--timeout","3600",
-        "--port","4100",
         "--update-env-vars",
-        "NODE_ENV=${_NODE_ENV},LOG_LEVEL=${_LOG_LEVEL},PORT=4100,MONGO_URI=${_MONGO_URI},CORS_ORIGIN=${_CORS_ORIGIN},JWT_ACCESS_SECRET=${_JWT_ACCESS_SECRET},JWT_REFRESH_SECRET=${_JWT_REFRESH_SECRET},DISCORD_SUPPORT_WEBHOOK_URL=${_DISCORD_SUPPORT_WEBHOOK_URL}"
+        "NODE_ENV=${_NODE_ENV},LOG_LEVEL=${_LOG_LEVEL},MONGO_URI=${_MONGO_URI},CORS_ORIGIN=${_CORS_ORIGIN},JWT_ACCESS_SECRET=${_JWT_ACCESS_SECRET},JWT_REFRESH_SECRET=${_JWT_REFRESH_SECRET},DISCORD_SUPPORT_WEBHOOK_URL=${_DISCORD_SUPPORT_WEBHOOK_URL}"
       ]
     waitFor: ["push-sha","push-latest"]
 
