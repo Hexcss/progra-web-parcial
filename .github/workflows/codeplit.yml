@@ -1,0 +1,49 @@
+name: Sync Folders to Branches
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Git
+        run: |
+          git config --global user.name 'Hexcss'
+          git config --global user.email 'cadersuay.javier@gmail.com'
+
+      - name: Push changes to corresponding branches
+        env:
+          REPO: ${{ github.repository }}
+          ACCESS_TOKEN: ${{ github.token }}
+        run: |
+          FOLDERS="frontend backend/api backend/gateway"
+
+          for folder in $FOLDERS; do
+            echo "Syncing $folder"
+
+            if ! git ls-remote --heads https://x-access-token:${ACCESS_TOKEN}@github.com/${REPO}.git $folder; then
+              echo "Branch $folder does not exist, creating from master"
+              git subtree split --prefix=$folder -b $folder-branch
+              git push https://x-access-token:${ACCESS_TOKEN}@github.com/${REPO}.git $folder-branch:$folder
+              git branch -D $folder-branch
+            fi
+
+            git subtree split --prefix=$folder -b temp-branch
+            git fetch https://x-access-token:${ACCESS_TOKEN}@github.com/${REPO}.git $folder:$folder || true
+            git checkout $folder || git checkout -b $folder
+            git reset --hard temp-branch
+            git push https://x-access-token:${ACCESS_TOKEN}@github.com/${REPO}.git $folder -f
+            git checkout master
+            git branch -D temp-branch
+          done
