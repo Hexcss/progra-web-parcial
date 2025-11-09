@@ -87,7 +87,6 @@ steps:
 
 options:
   logging: CLOUD_LOGGING_ONLY
-  substitution_option: ALLOW_LOOSE
 
 images:
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:$COMMIT_SHA"
