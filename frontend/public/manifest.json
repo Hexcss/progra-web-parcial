@@ -1,0 +1,59 @@
+{
+  "id": "/",
+  "name": "NeoTech",
+  "short_name": "NeoTech",
+  "description": "NeoTech — Marketplace web con login clásico y OAuth (Google/GitHub), carrito y chat de soporte.",
+  "lang": "es-ES",
+  "dir": "ltr",
+
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "browser"],
+  "orientation": "portrait",
+
+  "theme_color": "#f59e0b",
+  "background_color": "#0b0b0b",
+
+  "categories": ["shopping", "productivity", "utilities"],
+
+  "icons": [
+    {
+      "src": "/logos/app.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logos/app.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logos/app.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logos/app.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+
+  "shortcuts": [
+    {
+      "name": "Abrir Mercado",
+      "short_name": "Mercado",
+      "url": "/market",
+      "icons": [{ "src": "/logos/app.png", "sizes": "96x96", "type": "image/png" }]
+    }
+  ],
+
+  "handle_links": "preferred",
+
+  "prefer_related_applications": false
+}
