@@ -1,0 +1,116 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: pw-mongo
+    network_mode: host
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: portal
+    restart: unless-stopped
+
+  api:
+    image: node:20-alpine
+    container_name: pw-api
+    working_dir: /app
+    user: "node"
+    network_mode: host
+    volumes:
+      - ./backend/api:/app:Z
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+      PORT: "4000"
+
+      # CORS + Cliente
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
+
+      # MongoDB (now localhost)
+      MONGO_URI: mongodb://localhost:27017/portal
+
+      # JWT
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-me-access}
+      JWT_ACCESS_EXPIRES: ${JWT_ACCESS_EXPIRES:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh}
+      JWT_REFRESH_EXPIRES: ${JWT_REFRESH_EXPIRES:-7d}
+
+      # OAuth
+      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-id}
+      OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-secret}
+      OAUTH_GOOGLE_REDIRECT_URI: ${OAUTH_GOOGLE_REDIRECT_URI:-http://localhost:4000/auth/oauth/google/callback}
+      OAUTH_GITHUB_CLIENT_ID: ${OAUTH_GITHUB_CLIENT_ID:-id}
+      OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-secret}
+      OAUTH_GITHUB_REDIRECT_URI: ${OAUTH_GITHUB_REDIRECT_URI:-http://localhost:4000/auth/oauth/github/callback}
+    depends_on:
+      - mongo
+    command: >
+      sh -c "
+      npx --yes pnpm install &&
+      echo '✅ MongoDB ready, starting API...' &&
+      ( npx pnpm start:dev & ) &&
+      sleep 10 &&
+      echo '🌱 Running seed scripts...' &&
+      npx pnpm seed:admin &&
+      npx pnpm seed:products &&
+      tail -f /dev/null
+      "
+    restart: unless-stopped
+
+  gateway:
+    image: node:20-alpine
+    container_name: pw-gateway
+    working_dir: /app
+    user: "node"
+    network_mode: host
+    volumes:
+      - ./backend/gateway:/app:Z
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+      PORT: "4100"
+
+      # CORS + DB
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      MONGO_URI: mongodb://localhost:27017/portal
+
+      # JWT
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-me-access}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh}
+
+      # Discord Webhook opcional
+      DISCORD_SUPPORT_WEBHOOK_URL: ${DISCORD_SUPPORT_WEBHOOK_URL:-}
+    depends_on:
+      - mongo
+      - api
+    command: >
+      sh -c "
+      npx --yes pnpm install &&
+      npx pnpm start:dev
+      "
+    restart: unless-stopped
+
+  frontend:
+    image: node:20-alpine
+    container_name: pw-frontend
+    working_dir: /app
+    user: "node"
+    network_mode: host
+    volumes:
+      - ./frontend:/app:Z
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:4000}
+      VITE_WS_URL: ${VITE_WS_URL:-http://localhost:4100}
+    depends_on:
+      - api
+      - gateway
+    command: >
+      sh -c "
+      npx --yes pnpm install &&
+      npx pnpm dev --host 0.0.0.0 --port 5173
+      "
+    restart: unless-stopped
+
+volumes:
+  mongo-data:

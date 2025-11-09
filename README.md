@@ -1,390 +1,278 @@
-# Portal de Productos con Autenticación y Chat (Monorepo NestJS + React)
+# Progra Web Parcial — Documentación del Sistema
 
-[![NestJS](https://img.shields.io/badge/NestJS-HTTP%20API-E0234E?logo=nestjs&logoColor=white)](#)
-[![NestJS](https://img.shields.io/badge/NestJS-Socket.IO-E0234E?logo=nestjs&logoColor=white)](#)
-[![React](https://img.shields.io/badge/React%20%2B%20Vite-Frontend-61DAFB?logo=react&logoColor=white)](#)
-[![MongoDB](https://img.shields.io/badge/MongoDB-7.x-47A248?logo=mongodb&logoColor=white)](#)
-[![Socket.IO](https://img.shields.io/badge/Socket.IO-Chat-010101?logo=socket.io&logoColor=white)](#)
-[![JWT](https://img.shields.io/badge/Auth-JWT-000000?logo=jsonwebtokens&logoColor=white)](#)
-[![MUI](https://img.shields.io/badge/MUI-v7-007FFF?logo=mui&logoColor=white)](#)
-
-> **Asignatura:** Programación Web  
-> **Práctica 1:** Portal de productos con autenticación y chat (JWT + Socket.IO)  
-> **Stack:** NestJS (API + Gateway), React + Vite + TS, MongoDB, MUI.
+> Proyecto universitario de arquitectura web moderna con **Frontend (React + Vite + MUI)**, **API REST (NestJS)**, **Gateway WebSocket (NestJS + Socket.IO)** y **MongoDB**. Desplegado en **Google Cloud Run** con **CI/CD en GitHub Actions** y autenticación mediante **JWT en cookies HttpOnly** y **OAuth (Google y GitHub)**.
 
 
-## 🧭 Índice
+## Índice
 
-- [🎯 Objetivo](#-objetivo)
-- [🏗️ Arquitectura](#️-arquitectura)
-- [🗃️ Modelo de Datos (DBML)](#️-modelo-de-datos-dbml)
-- [🔐 Roles, JWT y Protección](#-roles-jwt-y-protección)
-- [🛣️ Endpoints y Eventos](#️-endpoints-y-eventos)
-- [📁 Estructura del Monorepo](#-estructura-del-monorepo)
-- [⚙️ Variables de Entorno](#️-variables-de-entorno)
-- [▶️ Puesta en Marcha](#️-puesta-en-marcha)
-- [🧪 Pruebas rápidas](#-pruebas-rápidas)
-- [🛡️ Seguridad y Buenas Prácticas](#️-seguridad-y-buenas-prácticas)
-- [📝 Criterios de Evaluación (mapeo)](#-criterios-de-evaluación-mapeo)
-- [🚀 Roadmap y Ampliaciones](#-roadmap-y-ampliaciones)
+1. [Objetivo del proyecto](#objetivo-del-proyecto)  
+2. [Visión general de la arquitectura](#visión-general-de-la-arquitectura)  
+3. [Decisiones de diseño (el “por qué”)](#decisiones-de-diseño-el-por-qué)  
+   - [Separación en servicios (sistema distribuido)](#separación-en-servicios-sistema-distribuido)  
+   - [JWT en cookies HttpOnly vs LocalStorage](#jwt-en-cookies-httponly-vs-localstorage)  
+   - [Autenticación para WebSockets](#autenticación-para-websockets)  
+   - [Elección de Google Cloud Run](#elección-de-google-cloud-run)  
+   - [Uso de OAuth (Google y GitHub)](#uso-de-oauth-google-y-github)  
+   - [Argon2 frente a bcrypt](#argon2-frente-a-bcrypt)  
+4. [Modelo de datos (MongoDB)](#modelo-de-datos-mongodb)  
+5. [Estructura del repositorio](#estructura-del-repositorio)  
+6. [Requisitos previos](#requisitos-previos)  
+7. [Variables de entorno](#variables-de-entorno)  
+8. [Puesta en marcha local](#puesta-en-marcha-local)  
+9. [Despliegue en Google Cloud Run](#despliegue-en-google-cloud-run)  
+10. [CI/CD con GitHub Actions](#cicd-con-github-actions)  
+11. [Pruebas manuales recomendadas](#pruebas-manuales-recomendadas)  
+12. [Resumen técnico de decisiones](#resumen-técnico-de-decisiones)  
+13. [Licencia y autores](#licencia-y-autores)
 
 
-## 🎯 Objetivo
+## Objetivo del proyecto
 
-Portal completo que integra:
+Construir una aplicación web moderna, segura y escalable que permita:
 
-- **CRUD de productos** conectado a **MongoDB**.  
-- **Sistema de usuarios** con **registro, login y roles** (user/admin).  
-- **Autenticación JWT** para proteger rutas HTTP y **sockets**.  
-- **Chat en tiempo real** (Socket.IO) **solo para usuarios autenticados**.  
-- **Documentación** clara para ejecutar y evaluar.
+- Autenticación con **email/contraseña** y **OAuth (Google/GitHub)**.  
+- Consumo de un **API REST** con **JWT en cookies HttpOnly**.  
+- **Chat de soporte** en tiempo real mediante Gateway **WebSocket**.  
+- Persistencia en **MongoDB**.  
+- Despliegue reproducible y de bajo mantenimiento en **Google Cloud Run**.  
+- Automatización de ramas y despliegues con **GitHub Actions**.
 
-## 🏗️ Arquitectura
 
-```mermaid
-flowchart LR
-  A[Cliente (React + Vite + MUI)] -- HTTP (REST) --> B[NestJS API (backend/api)]
-  A ---|"WebSocket (Socket.IO + JWT)"| C[NestJS Gateway (backend/gateway)]
-  B <---> D[(MongoDB)]
-  C <---> D[(MongoDB)]
-  subgraph GCP
-    D[(MongoDB en Compute Engine)]
-  end
-  A ---|"JWT en Authorization / Handshake"| B
-  A ---|"JWT en query/header"| C
-```
+## Visión general de la arquitectura
 
-**Decisiones clave**
-- Separación **HTTP** (API) y **Tiempo Real** (Gateway) en **dos apps NestJS**.  
-- **JWT** firmado con el mismo secreto en ambos servicios.  
-- **MongoDB** compartido por ambos (API: usuarios y productos; Gateway: mensajes del chat).  
-- Frontend React + Vite + TS + tu stack (MUI, Router v7, Zustand/Signals, React Query, Axios, Framer Motion, Zod...).
+- **Frontend (React + Vite + MUI)**: interfaz del marketplace/portal, flujo de login/signup, inicio de OAuth, consumo del API vía fetch/axios y conexión a WebSocket con ticket efímero.
+- **API REST (NestJS)**:  
+  - Autenticación con **JWT** (cookies HttpOnly, `SameSite=Lax`, rotación de tokens).  
+  - **OAuth** con Google y GitHub (intercambio de código en el servidor, emisión de cookies y redirección al cliente).  
+  - Endpoints de negocio (usuarios, soporte, etc.).  
+  - Emisión de **tickets cortos** para el **handshake WebSocket**.
+- **Gateway WebSocket (NestJS + Socket.IO)**:  
+  - Conexión autenticada con **ticket de 60s**.  
+  - Salas, mensajes y eventos del chat de soporte.  
+- **MongoDB**: base de datos documental para usuarios, salas y mensajes.  
+- **CI/CD con GitHub Actions**: sincroniza subcarpetas a ramas homónimas y posibilita pipelines independientes.  
+- **Google Cloud Run**: contenedores serverless, HTTPS, autoscaling y soporte de WebSockets.
 
-## 🗃️ Modelo de Datos (DBML)
+## Decisiones de diseño (el “por qué”)
 
-> Modelamos colecciones como tablas para claridad (DBML). Los índices y referencias ayudan a la evaluación.
+### Separación en servicios (sistema distribuido)
 
-```dbml
-Project {
-  database_type: "mongodb-like"
-  note: "Colecciones Mongo modeladas en DBML"
-}
+- **Despliegue independiente**: API y Gateway evolucionan y escalan por separado.  
+- **Coste y rendimiento**: el tráfico HTTP (ráfagas cortas) y WS (conexiones largas) tienen perfiles distintos; separarlos optimiza consumo y tuning.  
+- **Reducción de riesgo**: un pico o bug en chat no degrada el API crítico.  
+- **Límites claros**: API = CRUD/negocio; Gateway = tiempo real.
 
-Table users as "users" {
-  _id objectid [pk, note: "ObjectId"]
-  email string [unique, not null]
-  passwordHash string [not null, note: "bcrypt"]
-  role string [not null, note: "enum: user|admin"]
-  displayName string
-  avatarUrl string
-  createdAt datetime [not null]
-  updatedAt datetime [not null]
-  Indexes {
-    (email) [unique]
-    (role)
-    (createdAt)
-  }
-}
+### JWT en cookies HttpOnly vs LocalStorage
 
-Table products as "products" {
-  _id objectid [pk]
-  name string [not null]
-  description string
-  price double [not null]
-  stock int [not null, default: 0]
-  imageUrl string
-  category string
-  tags string[]  // arreglo de strings
-  createdBy objectid [ref: > users._id]
-  createdAt datetime [not null]
-  updatedAt datetime [not null]
-  Indexes {
-    (name)
-    (category)
-    (createdAt)
-  }
-}
+- **Mitigación de XSS**: las **cookies HttpOnly** no son accesibles por JavaScript; se reduce la exfiltración de tokens.  
+- **`SameSite=Lax`**: protege la mayoría de escenarios CSRF en navegación.  
+- **Ergonomía**: el navegador adjunta la cookie automáticamente; el cliente no gestiona headers manualmente.  
+- **Rotación/expiración controlada**: el servidor controla el ciclo de vida y la renovación con **refresh tokens**.
 
-Table chat_rooms as "chat_rooms" {
-  _id objectid [pk]
-  name string
-  isDirect boolean [not null, default: false]
-  participants objectid[] [ref: > users._id]
-  createdAt datetime [not null]
-  Indexes {
-    (isDirect)
-  }
-}
+> Nota: los endpoints sensibles se endurecen con validaciones, y es posible añadir **tokens CSRF** o **idempotency keys** para operaciones críticas.
 
-Table chat_messages as "chat_messages" {
-  _id objectid [pk]
-  roomId objectid [ref: > chat_rooms._id, not null]
-  userId objectid [ref: > users._id, not null]
-  content string [not null]
-  createdAt datetime [not null]
-  Indexes {
-    (roomId, createdAt)
-    (userId, createdAt)
-  }
-}
-```
+### Autenticación para WebSockets
 
-> **Simplificación por defecto:** un **room** global `"general"` y persistencia de mensajes.  
-> **Opcional (extra):** rooms privados y DM (isDirect).
+- Los handshakes **no** comparten las mismas garantías de cookies que `fetch`.  
+- Se utiliza un **ticket JWT efímero (≈60s)** emitido por el API (`GET /auth/ws-ticket`).  
+- El cliente abre Socket.IO con `auth: { token }`.  
+- El Gateway valida el ticket y establece la sesión WS sin exponer refresh tokens.
 
-## 🔐 Roles, JWT y Protección
+### Elección de Google Cloud Run
 
-- **Roles:**  
-  - `user`: puede **listar/ver** productos y usar el **chat**.  
-  - `admin`: además puede **crear/editar/eliminar** productos.
+- **Serverless de contenedores** con **HTTPS** y **WebSockets**.  
+- **Autoscaling a 0**: coste mínimo en entornos con baja demanda (idóneo para proyectos académicos).  
+- **Logging/metrics** integrados, revisiones y traffic-splitting.  
+- **Infra simplificada**: sin gestionar VMs ni balanceadores manuales.
 
-- **JWT HTTP:**  
-  - `Authorization: Bearer <token>` en rutas protegidas.  
-  - Estrategia `JwtStrategy` en API + `JwtAuthGuard`.
+### Uso de OAuth (Google y GitHub)
 
-- **JWT Socket.IO:**  
-  - Handshake con `auth: { token }` o `Authorization` header.  
-  - Guard `WsJwtGuard` que rechaza conexiones no válidas.
+- **Menos fricción**: inicio de sesión con cuentas existentes.  
+- **Emails verificados**: evita construir flujos de verificación.  
+- **Seguridad**: se heredan MFA y señales de riesgo del proveedor.  
+- **Implementación server-side**: intercambio de código y emisión de cookies **en el servidor**; nunca se exponen tokens de proveedor al navegador.
 
-- **Expiración sugerida:** `15m` de access token (refresco opcional fuera de alcance de la práctica).
+### Argon2 frente a bcrypt
 
-## 🛣️ Endpoints y Eventos
+- **Argon2id** es resistente a ataques GPU/ASIC y **memory-hard** (ganador del PHC).  
+- **Parámetros modernos** y perfiles de seguridad robustos.  
+- **Buena adopción** en ecosistemas Node/Nest modernos.
 
-### API (HTTP - backend/api)
+## Modelo de datos (MongoDB)
 
-| Método | Ruta                 | Auth      | Rol       | Descripción                     |
-|-------:|----------------------|-----------|-----------|---------------------------------|
-|   POST | `/auth/register`     | Pública   | —         | Registra usuario (hash bcrypt). |
-|   POST | `/auth/login`        | Pública   | —         | Devuelve JWT.                   |
-|    GET | `/products`          | Pública   | —         | Lista productos (público).      |
-|    GET | `/products/:id`      | Pública   | —         | Detalle de producto.            |
-|   POST | `/products`          | JWT       | **admin** | Crear producto.                 |
-|    PUT | `/products/:id`      | JWT       | **admin** | Editar producto.                |
-| DELETE | `/products/:id`      | JWT       | **admin** | Eliminar producto.              |
+Entidades principales:
 
-### Gateway (WebSocket - backend/gateway)
+- **users**  
+  - `_id`, `email` (único), `passwordHash`, `displayName`, `role` (`user|admin`), `createdAt`, `updatedAt`.  
+  - Índice único: `email`.
 
-**Namespace:** `/chat`  
-**Handshake:** requiere JWT válido.
+- **supportRooms**  
+  - `_id`, `customerId` (→ users), `adminId` (→ users), `status` (`waiting|assigned|closed`), `createdAt`, `updatedAt`, `lastMessageAt`.  
+  - Índices: `(status, updatedAt)`, `(adminId, updatedAt)`.
 
-| Evento cliente → servidor | Payload                        | Respuesta/efecto                         |
-|---------------------------|--------------------------------|------------------------------------------|
-| `chat:join`               | `{ roomId }`                   | Une al cliente al room.                  |
-| `chat:leave`              | `{ roomId }`                   | Sale del room.                           |
-| `chat:message`            | `{ roomId, content }`          | Persiste y emite a room (`chat:new`).    |
-| `chat:typing` (opcional)  | `{ roomId, isTyping }`         | Broadcast estado de “escribiendo…”.      |
-| `chat:history`            | `{ roomId, limit? }`           | Devuelve últimos N mensajes.             |
+- **supportMessages**  
+  - `_id`, `roomId` (→ supportRooms), `senderId` (→ users), `senderRole` (`user|admin`), `body`, `createdAt`, `updatedAt`.  
+  - Índice: `(roomId, createdAt)`.
 
-**Servidor → cliente**
+Se adoptó **MongoDB** por su orientación a documentos, agilidad de iteración en esquemas y facilidad para modelar conversaciones (mensajes anidados por sala + orden natural por tiempo).
 
-- `chat:new` → `{ _id, roomId, user, content, createdAt }`  
-- `chat:typing` → `{ roomId, user, isTyping }`
-
-## 📁 Estructura del Monorepo
+## Estructura del repositorio
 
 ```text
-portal-productos-chat/
-├─ README.md
-├─ docker-compose.yml
-├─ package.json
+/
 ├─ backend/
-│  ├─ api/       # NestJS HTTP (auth + productos)
-│  └─ gateway/   # NestJS Socket.IO (chat)
-└─ frontend/     # React + Vite + TS + MUI
+│  ├─ api/           # NestJS API (REST, Auth, OAuth, emisión de tickets WS)
+│  └─ gateway/       # NestJS Gateway (Socket.IO, chat tiempo real)
+├─ frontend/         # React + Vite + MUI
+├─ docs/             # (diagramas: .puml/.mmd/.dbml + PNGs)
+├─ docker-compose.yml # Servicios locales (p.ej. MongoDB)
+└─ .github/workflows  # CI (split de subcarpetas a ramas)
 ```
 
-**Workspaces (root `package.json`):**
+## Requisitos previos
 
-```json
-{
-  "name": "portal-productos-chat",
-  "private": true,
-  "workspaces": [
-    "backend/api",
-    "backend/gateway",
-    "frontend"
-  ],
-  "scripts": {
-    "postinstall": "npm run build -ws --if-present=false",
-    "dev": "concurrently -n API,GW,WEB -c green,yellow,cyan \"npm -w backend/api run start:dev\" \"npm -w backend/gateway run start:dev\" \"npm -w frontend run dev\"",
-    "start": "concurrently -n API,GW,WEB -c green,yellow,cyan \"npm -w backend/api run start:prod\" \"npm -w backend/gateway run start:prod\" \"npm -w frontend run preview\"",
-    "lint": "npm -ws run lint",
-    "build": "npm -ws run build"
-  },
-  "devDependencies": {
-    "concurrently": "^9.0.0"
-  }
-}
-```
+- **Node.js 20+**  
+- **pnpm (preferiblemente)**  
+- **Docker** (para lanzar MongoDB local con `docker-compose`)  
+- **Cuenta de Google Cloud** (para Cloud Run)  
+- **Cuenta de GitHub** (para OAuth y CI)
 
-## ⚙️ Variables de Entorno
+## Variables de entorno
 
-### API (`backend/api/.env`)
+Archivo `backend/api/.env`:
 
-```bash
+```env
 PORT=4000
-MONGO_URI=mongodb://localhost:27017/portal
-JWT_SECRET=super-secret-change-me
-JWT_EXPIRES_IN=15m
-BCRYPT_SALT_ROUNDS=10
+NODE_ENV=development
+LOG_LEVEL=debug
+
+# CORS y URL del cliente (la URL de Vite o dominio del frontend)
 CORS_ORIGIN=http://localhost:5173
-```
+CLIENT_URL=http://localhost:5173
 
-### Gateway (`backend/gateway/.env`)
-
-```bash
-PORT=4001
+# MongoDB
 MONGO_URI=mongodb://localhost:27017/portal
-JWT_SECRET=super-secret-change-me
-CORS_ORIGIN=http://localhost:5173
-CHAT_DEFAULT_ROOM=general
+
+# JWT
+JWT_ACCESS_SECRET=dev-access-secret-cámbiame
+JWT_REFRESH_SECRET=dev-refresh-secret-cámbiame
+JWT_ACCESS_EXPIRES=15m
+JWT_REFRESH_EXPIRES=7d
+
+# OAuth (Google)
+OAUTH_GOOGLE_CLIENT_ID=...
+OAUTH_GOOGLE_CLIENT_SECRET=...
+
+# OAuth (GitHub)
+OAUTH_GITHUB_CLIENT_ID=...
+OAUTH_GITHUB_CLIENT_SECRET=...
 ```
 
-### Frontend (`frontend/.env`)
+> **Importante (cookies + redirecciones)**: el servidor **siempre** establece las cookies en su propio dominio/origen (API). Tras OAuth, el servidor **redirecciona al CLIENT_URL**. Las cookies quedan almacenadas para el dominio del API y serán enviadas en futuras peticiones **desde el frontend hacia el API**.
 
+## Puesta en marcha local
+
+1) **Todos los servicios + Base de datos** (Docker):
 ```bash
-VITE_API_URL=http://localhost:4000
-VITE_WS_URL=http://localhost:4001
+docker compose up -d
+# o:
+# docker run --name mongo -p 27017:27017 -d mongo:6
 ```
 
-> En Docker Compose, `MONGO_URI` usará `mongodb://mongo:27017/portal`.
-
-## ▶️ Puesta en Marcha
-
-### Opción A) Local (sin Docker)
-
-1) Instalar dependencias en monorepo:
-
+2) **Backend API**:
 ```bash
-npm install
+cd backend/api
+pnpm install
+pnpm start:dev
 ```
 
-2) Levantar todo en modo dev (watch):
-
+3) **Gateway WebSocket**:
 ```bash
-npm run dev
+cd backend/gateway
+pnpm install
+pnpm start:dev
 ```
 
-- API: <http://localhost:4000>  
-- Gateway (WS): <http://localhost:4001/chat>  
-- Frontend: <http://localhost:5173>
-
-> Asegúrate de tener MongoDB 7.x local (`MONGO_URI` apuntando a localhost).
-
-### Opción B) Docker Compose (local + persistencia)
-
-`docker-compose.yml` (raíz del repo):
-
-```yaml
-version: "3.9"
-
-services:
-  mongo:
-    image: mongo:7
-    container_name: mongo
-    ports:
-      - "27017:27017"
-    volumes:
-      - ./docker/mongo/data:/data/db
-    environment:
-      MONGO_INITDB_DATABASE: portal
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "mongodb://localhost:27017/portal", "--eval", "db.runCommand({ ping: 1 }).ok"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    restart: unless-stopped
-
-  api:
-    build: ./backend/api
-    container_name: api
-    env_file: ./backend/api/.env
-    environment:
-      MONGO_URI: mongodb://mongo:27017/portal
-      CORS_ORIGIN: http://localhost:5173
-    ports:
-      - "4000:4000"
-    depends_on:
-      - mongo
-    restart: unless-stopped
-
-  gateway:
-    build: ./backend/gateway
-    container_name: gateway
-    env_file: ./backend/gateway/.env
-    environment:
-      MONGO_URI: mongodb://mongo:27017/portal
-      CORS_ORIGIN: http://localhost:5173
-    ports:
-      - "4001:4001"
-    depends_on:
-      - mongo
-      - api
-    restart: unless-stopped
-
-  web:
-    build: ./frontend
-    container_name: web
-    environment:
-      VITE_API_URL: http://localhost:4000
-      VITE_WS_URL: http://localhost:4001
-    ports:
-      - "5173:5173"
-    depends_on:
-      - api
-      - gateway
-    restart: unless-stopped
-```
-
-Levantar:
-
+4) **Frontend**:
 ```bash
-docker compose up -d --build
+cd frontend
+pnpm install
+pnpm dev
+# abre http://localhost:5173
 ```
 
-## 🧪 Pruebas rápidas
+## Despliegue en Google Cloud Run
 
-### Registro & Login
-
+1) **Construir imágenes** (ejemplo API):
 ```bash
-# Registro
-curl -X POST http://localhost:4000/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@acme.com","password":"123456","displayName":"Test"}'
-
-# Login
-curl -X POST http://localhost:4000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@acme.com","password":"123456"}'
-# => { access_token: "..." }
+cd backend/api
+docker build -t gcr.io/<PROYECTO>/portal-api:<TAG> .
+docker push gcr.io/<PROYECTO>/portal-api:<TAG>
 ```
 
-### CRUD Productos (admin)
-
+2) **Desplegar**:
 ```bash
-TOKEN="PEGA_AQUI_EL_TOKEN"
-
-# Crear (admin)
-curl -X POST http://localhost:4000/products \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name":"Teclado Mecanico","price":79.9,"stock":5,"category":"Periféricos"}'
+gcloud run deploy portal-api \
+  --image gcr.io/<PROYECTO>/portal-api:<TAG> \
+  --platform managed \
+  --region <REGION> \
+  --allow-unauthenticated \
+  --port 4000
 ```
 
-### Chat (Socket.IO)
+3) **Configurar variables de entorno** (Cloud Run → Revisiones → Variables y secretos).  
+4) **Configurar dominio** (opcional) y HTTPS administrado.  
+5) **Ajustes recomendados**:
+   - Min instances: 0 (ahorro)  
+   - Max instances: según carga  
+   - Concurrency: 80–200 para API; inferior en Gateway si hay muchas conexiones largas  
+   - Timeout: 30–60s (API), mayor si el Gateway lo requiere  
+   - **WebSockets**: Cloud Run los soporta sin configuración extra.  
+   - **MongoDB**: usar MongoDB Atlas o red privada; configurar `MONGO_URI` seguro.  
 
-- Conectar a `ws://localhost:4001/chat` con `auth: { token }`.  
-- `emit("chat:join", { roomId: "general" })`  
-- `emit("chat:message", { roomId: "general", content: "Hola :)" })`
+## CI/CD con GitHub Actions
+
+El workflow **“Sync Folders to Branches”** crea/push ramas a partir de subcarpetas (`frontend`, `backend/api`, `backend/gateway`) para facilitar pipelines separadas.
+
+- Añadir **secreto** `REPO_ACCESS_TOKEN` (token clásico PAT con `repo` scope).  
+- El workflow ejecuta `git subtree split` y hace push forzado a las ramas-hijas.  
+- Desde ahí se pueden conectar despliegues automáticos por servicio.
 
 
-## 🛡️ Seguridad y Buenas Prácticas
+## Pruebas manuales recomendadas
 
-- **Argon2** para passwords; **nunca** almacenar en claro.  
-- **JWT** con expiración corta; reemisión en login.  
-- **Helmet, CORS estricto** (orígenes conocidos).  
-- **Validación** de DTOs (class-validator) y **sanitización**.  
-- **Indices Mongo** creados desde los esquemas.  
-- **Guards** separados para HTTP y WS (evita accesos anónimos).  
-- **Logs mínimos + DTOs bien tipados** para cumplir “claridad” en evaluación.
+1) **Registro y login** con email/contraseña:
+   - `POST /auth/register` desde el frontend y comprobar cookies HttpOnly.
+   - `POST /auth/login` y luego `GET /auth/me`.
 
+2) **OAuth**:
+   - Botón “Continuar con Google/GitHub” → flujo de consentimiento.  
+   - Verificación de que el servidor emite cookies y redirige a `CLIENT_URL`.  
+
+3) **Ticket WebSocket**:
+   - `GET /auth/ws-ticket` autenticado.  
+   - Conectar Socket.IO con `auth: { token }` y enviar/recibir mensajes.
+
+4) **Soporte**:
+   - Crear sala, enviar mensajes desde usuario y desde portal/admin.  
+   - Cerrar sala y verificar estados/listados.
+
+
+## Resumen técnico de decisiones
+
+- **Sistema distribuido** para aislar cargas HTTP y WS, reducir coste y riesgos.  
+- **JWT en cookies HttpOnly** por seguridad (XSS) y ergonomía del cliente.  
+- **Ticket WS efímero** para handshakes seguros sin exponer refresh tokens.  
+- **Cloud Run** por simplicidad operativa, HTTPS y autoscaling a 0.  
+- **OAuth** para reducir fricción y heredar seguridad de proveedores.  
+- **Argon2id** como función de hashing moderna y memory-hard.  
+- **MongoDB** por su flexibilidad documental y patrón de acceso simple para chats.
+
+
+## Licencia y autores
+
+- **Licencia:** MIT  
+- **Autores:** Javier Cáder Suay
+
+> Para ampliar esta documentación se incluirán **diagramas** en la carpeta `/docs/` (PUML/Mermaid/DBML + PNGs) describiendo componentes, secuencias (login/OAuth) y el modelo de datos.
 
