@@ -1,6 +1,6 @@
 // src/backend/apis/category.api.ts
 import { z } from "zod"
-import { baseClient } from "../clients/base.client"
+import { graphqlRequest } from "../clients/graphql.client"
 import { safeApiCall, type SafeApiResult } from "../../utils/functions/safe-api-call.function"
 import {
   ZCategory,
@@ -23,25 +23,92 @@ export type CreateCategoryInput = z.infer<typeof ZCreateCategory>
 export type UpdateCategoryInput = z.infer<typeof ZUpdateCategory>
 export type CategoryThumbnail = z.infer<typeof ZCategoryThumbnail>
 
+const CATEGORY_FIELDS = `
+  _id
+  name
+  icon
+  createdAt
+  updatedAt
+  productCount
+  thumbnail
+`
+
+const LIST_QUERY = `
+  query Categories {
+    categories {
+      ${CATEGORY_FIELDS}
+    }
+  }
+`
+
+const GET_QUERY = `
+  query Category($id: String!) {
+    category(id: $id) {
+      ${CATEGORY_FIELDS}
+    }
+  }
+`
+
+const THUMB_QUERY = `
+  query CategoryThumbnail($id: String!) {
+    categoryThumbnail(id: $id) {
+      categoryId
+      thumbnail
+    }
+  }
+`
+
+const CREATE_MUTATION = `
+  mutation CreateCategory($input: CreateCategoryDto!) {
+    createCategory(input: $input) {
+      _id
+      name
+      icon
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+const UPDATE_MUTATION = `
+  mutation UpdateCategory($id: String!, $input: UpdateCategoryDto!) {
+    updateCategory(id: $id, input: $input) {
+      _id
+      name
+      icon
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+const REMOVE_MUTATION = `
+  mutation RemoveCategory($id: String!) {
+    removeCategory(id: $id) {
+      success
+    }
+  }
+`
+
 export const CategoriesAPI = {
   async list(): Promise<SafeApiResult<CategoryEnriched[]>> {
     return safeApiCall(async () => {
-      const res = await baseClient.get("/categories", { withCredentials: true })
-      return z.array(ZCategoryEnriched).parse(res.data)
+      const data = await graphqlRequest<{ categories: CategoryEnriched[] }>(LIST_QUERY)
+      return z.array(ZCategoryEnriched).parse(data.categories)
     })
   },
 
   async getById(id: string): Promise<SafeApiResult<CategoryEnriched>> {
     return safeApiCall(async () => {
-      const res = await baseClient.get(`/categories/${encodeURIComponent(id)}`, { withCredentials: true })
-      return ZCategoryEnriched.parse(res.data)
+      const data = await graphqlRequest<{ category: CategoryEnriched }>(GET_QUERY, { id })
+      return ZCategoryEnriched.parse(data.category)
     })
   },
 
   async getNewThumbnail(id: string): Promise<SafeApiResult<CategoryThumbnail>> {
     return safeApiCall(async () => {
-      const res = await baseClient.get(`/categories/${encodeURIComponent(id)}/thumbnail`, { withCredentials: true })
-      return ZCategoryThumbnail.parse(res.data)
+      const data = await graphqlRequest<{ categoryThumbnail: CategoryThumbnail }>(THUMB_QUERY, { id })
+      return ZCategoryThumbnail.parse(data.categoryThumbnail)
     })
   },
 
@@ -52,8 +119,8 @@ export const CategoriesAPI = {
       return { success: false, message: m, status: null, data: null }
     }
     return safeApiCall(async () => {
-      const res = await baseClient.post("/categories", parsed.data, { withCredentials: true })
-      return ZCategory.parse(res.data)
+      const data = await graphqlRequest<{ createCategory: Category }>(CREATE_MUTATION, { input: parsed.data })
+      return ZCategory.parse(data.createCategory)
     })
   },
 
@@ -64,15 +131,15 @@ export const CategoriesAPI = {
       return { success: false, message: m, status: null, data: null }
     }
     return safeApiCall(async () => {
-      const res = await baseClient.put(`/categories/${encodeURIComponent(id)}`, parsed.data, { withCredentials: true })
-      return ZCategory.parse(res.data)
+      const data = await graphqlRequest<{ updateCategory: Category }>(UPDATE_MUTATION, { id, input: parsed.data })
+      return ZCategory.parse(data.updateCategory)
     })
   },
 
   async remove(id: string): Promise<SafeApiResult<{ success: boolean }>> {
     return safeApiCall(async () => {
-      const res = await baseClient.delete(`/categories/${encodeURIComponent(id)}`, { withCredentials: true })
-      return res.data
+      const data = await graphqlRequest<{ removeCategory: { success: boolean } }>(REMOVE_MUTATION, { id })
+      return data.removeCategory
     })
   },
 }

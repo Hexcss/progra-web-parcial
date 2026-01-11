@@ -1,5 +1,5 @@
 // src/components/Modals/Products/DeleteProductModal.tsx
-import { Box, Stack, Typography, Divider, Button } from "@mui/material";
+import { Box, Stack, Typography, Divider } from "@mui/material";
 import BaseDialogModal from "../Bases/BaseDialogModal";
 import type { ModalPropsMap } from "../../../utils/types/modal.type";
 import { useDeleteProduct } from "../../../queries/products.queries";
@@ -37,11 +37,6 @@ export default function DeleteProductModal({ id, name }: Props) {
             ¿Seguro que deseas eliminar {name ? <strong>{name}</strong> : "este producto"}? Esta acción no se puede deshacer.
           </Typography>
           <Divider />
-          <Stack direction="row" justifyContent="flex-end" spacing={1}>
-            <Button onClick={closeModal} color="inherit" variant="outlined" sx={{ textTransform: "none" }}>
-              Cancelar
-            </Button>
-          </Stack>
         </Stack>
       </Box>
     </BaseDialogModal>

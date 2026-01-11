@@ -127,7 +127,7 @@ export default function AdminSummaryPage() {
   }, [ordersSample, startOfToday, endOfToday]);
 
   return (
-    <PortalLayout contentZoomable allowScrolling>
+    <PortalLayout contentZoomable>
       <Stack spacing={3}>
         <Stack
           direction={{ xs: "column", md: "row" }}

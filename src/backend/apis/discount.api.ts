@@ -1,6 +1,6 @@
 // src/backend/apis/discount.api.ts
 import { z } from "zod";
-import { baseClient } from "../clients/base.client";
+import { graphqlRequest } from "../clients/graphql.client";
 import { safeApiCall, type SafeApiResult } from "../../utils/functions/safe-api-call.function";
 import { ZDiscount, type Discount, ZCreateDiscountPayload, type CreateDiscountPayload, ZUpdateDiscountPayload, type UpdateDiscountPayload } from "../../schemas/market.schemas";
 
@@ -55,20 +55,70 @@ const coerceToPaginated = (raw: any, params: DiscountListParams): PaginatedDisco
   };
 };
 
+const DISCOUNT_FIELDS = `
+  _id
+  productId
+  discountPercent
+  startDate
+  endDate
+  createdAt
+  updatedAt
+`;
+
+const LIST_QUERY = `
+  query Discounts($productId: String, $page: Int, $limit: Int) {
+    discounts(productId: $productId, page: $page, limit: $limit) {
+      ${DISCOUNT_FIELDS}
+    }
+  }
+`;
+
+const GET_QUERY = `
+  query Discount($id: String!) {
+    discount(id: $id) {
+      ${DISCOUNT_FIELDS}
+    }
+  }
+`;
+
+const CREATE_MUTATION = `
+  mutation CreateDiscount($input: CreateDiscountDto!) {
+    createDiscount(input: $input) {
+      ${DISCOUNT_FIELDS}
+    }
+  }
+`;
+
+const UPDATE_MUTATION = `
+  mutation UpdateDiscount($id: String!, $input: UpdateDiscountDto!) {
+    updateDiscount(id: $id, input: $input) {
+      ${DISCOUNT_FIELDS}
+    }
+  }
+`;
+
+const REMOVE_MUTATION = `
+  mutation RemoveDiscount($id: String!) {
+    removeDiscount(id: $id) {
+      success
+    }
+  }
+`;
+
 export const DiscountsAPI = {
   async list(params: DiscountListParams = {}): Promise<SafeApiResult<PaginatedDiscounts>> {
     const parsed = ZDiscountListParams.safeParse(params);
     const finalParams = parsed.success ? parsed.data : {};
     return safeApiCall(async () => {
-      const res = await baseClient.get("/discounts", { params: finalParams, withCredentials: true });
-      return coerceToPaginated(res.data, finalParams);
+      const data = await graphqlRequest<{ discounts: Discount[] }>(LIST_QUERY, finalParams);
+      return coerceToPaginated(data.discounts, finalParams);
     }, "discounts.list");
   },
 
   async getById(id: string): Promise<SafeApiResult<Discount>> {
     return safeApiCall(async () => {
-      const res = await baseClient.get(`/discounts/${encodeURIComponent(id)}`, { withCredentials: true });
-      return ZDiscount.parse(res.data);
+      const data = await graphqlRequest<{ discount: Discount }>(GET_QUERY, { id });
+      return ZDiscount.parse(data.discount);
     }, "discounts.getById");
   },
 
@@ -79,8 +129,8 @@ export const DiscountsAPI = {
       return { success: false, message: m, status: null, data: null };
     }
     return safeApiCall(async () => {
-      const res = await baseClient.post("/discounts", parsed.data, { withCredentials: true });
-      return ZDiscount.parse(res.data);
+      const data = await graphqlRequest<{ createDiscount: Discount }>(CREATE_MUTATION, { input: parsed.data });
+      return ZDiscount.parse(data.createDiscount);
     }, "discounts.create");
   },
 
@@ -91,14 +141,14 @@ export const DiscountsAPI = {
       return { success: false, message: m, status: null, data: null };
     }
     return safeApiCall(async () => {
-      const res = await baseClient.put(`/discounts/${encodeURIComponent(id)}`, parsed.data, { withCredentials: true });
-      return ZDiscount.parse(res.data);
+      const data = await graphqlRequest<{ updateDiscount: Discount }>(UPDATE_MUTATION, { id, input: parsed.data });
+      return ZDiscount.parse(data.updateDiscount);
     }, "discounts.update");
   },
 
   async remove(id: string): Promise<SafeApiResult<true>> {
     return safeApiCall(async () => {
-      await baseClient.delete(`/discounts/${encodeURIComponent(id)}`, { withCredentials: true });
+      await graphqlRequest<{ removeDiscount: { success: boolean } }>(REMOVE_MUTATION, { id });
       return true as const;
     }, "discounts.remove");
   },

@@ -1,16 +1,22 @@
 // src/schemas/auth.schemas.ts
 import { z } from "zod";
 
-export const ZUserRole = z.enum(["user", "admin"]);
+const normalizeRole = (value: unknown) =>
+  typeof value === "string" ? value.toLowerCase() : value;
+
+export const ZUserRole = z.preprocess(
+  normalizeRole,
+  z.enum(["user", "admin"])
+);
 
 export const ZUser = z.object({
   _id: z.string(),
   email: z.string().email(),
-  displayName: z.string().optional(),
+  displayName: z.string().nullable().optional(),
   role: ZUserRole,
-  createdAt: z.string().datetime().optional(),
-  updatedAt: z.string().datetime().optional(),
-  avatarUrl: z.string().url().optional(),
+  createdAt: z.string().datetime().nullable().optional(),
+  updatedAt: z.string().datetime().nullable().optional(),
+  avatarUrl: z.string().url().nullable().optional(),
 });
 export type User = z.infer<typeof ZUser>;
 

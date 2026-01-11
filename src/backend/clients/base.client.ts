@@ -1,5 +1,5 @@
 // src/backend/clients/base.client.ts
-import axios, { AxiosError, type AxiosRequestConfig } from "axios";
+import axios, { AxiosError, type AxiosRequestConfig, type AxiosResponse } from "axios";
 import cleanDeep from "clean-deep";
 import { env } from "../../config/env";
 import { normalizeMessage } from "../../utils/functions/mormalize-message.function";
@@ -74,6 +74,33 @@ const normalizeObjectArrays = (v: any): any => {
   return v;
 };
 
+const buildGraphqlError = (response: AxiosResponse<any>) => {
+  const errors = response?.data?.errors;
+  if (!Array.isArray(errors) || errors.length === 0) return null;
+  const first = errors[0] ?? {};
+  const ext = (first as any)?.extensions ?? {};
+  const status =
+    ext?.originalError?.statusCode ??
+    ext?.response?.statusCode ??
+    ext?.statusCode ??
+    400;
+  const data =
+    ext?.response ??
+    ext?.originalError ??
+    { message: (first as any)?.message ?? "GraphQL error" };
+  if (data && typeof data === "object" && !("message" in data)) {
+    (data as any).message = (first as any)?.message ?? "GraphQL error";
+  }
+  const gqlResponse = { ...response, status, data };
+  return new AxiosError(
+    (first as any)?.message ?? "GraphQL error",
+    undefined,
+    response.config,
+    response.request,
+    gqlResponse
+  );
+};
+
 let sessionNotified = false;
 
 baseClient.interceptors.request.use(
@@ -96,6 +123,8 @@ baseClient.interceptors.response.use(
     try {
       response.data = normalizeObjectArrays(response.data);
     } catch {}
+    const gqlError = buildGraphqlError(response);
+    if (gqlError) return Promise.reject(gqlError);
     return response;
   },
   (error: AxiosError<any>) => {

@@ -1,6 +1,6 @@
 // src/backend/apis/product.api.ts
 import { z } from "zod"
-import { baseClient } from "../clients/base.client"
+import { graphqlRequest } from "../clients/graphql.client"
 import { safeApiCall, type SafeApiResult } from "../../utils/functions/safe-api-call.function"
 import {
   ZCreateProductPayload,
@@ -37,6 +37,81 @@ const ZListParams = z.object({
   sort: z.enum(["new", "priceAsc", "priceDesc", "rating"]).optional(),
 })
 
+const PRODUCT_FIELDS = `
+  _id
+  name
+  description
+  price
+  stock
+  imageUrl
+  category
+  categoryId
+  tags
+  createdBy
+  createdAt
+  updatedAt
+  avgRating
+  reviewCount
+  activeDiscount {
+    discountPercent
+    startDate
+    endDate
+  }
+`
+
+const LIST_QUERY = `
+  query Products($q: String, $category: String, $categoryId: String, $limit: Int, $page: Int, $tags: [String!], $minPrice: Float, $maxPrice: Float, $sort: String) {
+    products(q: $q, category: $category, categoryId: $categoryId, limit: $limit, page: $page, tags: $tags, minPrice: $minPrice, maxPrice: $maxPrice, sort: $sort) {
+      total
+      page
+      limit
+      items {
+        ${PRODUCT_FIELDS}
+      }
+    }
+  }
+`
+
+const GET_QUERY = `
+  query Product($id: String!) {
+    product(id: $id) {
+      ${PRODUCT_FIELDS}
+    }
+  }
+`
+
+const TOP_QUERY = `
+  query TopProducts($limit: Int) {
+    topProducts(limit: $limit) {
+      ${PRODUCT_FIELDS}
+    }
+  }
+`
+
+const CREATE_MUTATION = `
+  mutation CreateProduct($input: CreateProductDto!) {
+    createProduct(input: $input) {
+      ${PRODUCT_FIELDS}
+    }
+  }
+`
+
+const UPDATE_MUTATION = `
+  mutation UpdateProduct($id: String!, $input: UpdateProductDto!) {
+    updateProduct(id: $id, input: $input) {
+      ${PRODUCT_FIELDS}
+    }
+  }
+`
+
+const REMOVE_MUTATION = `
+  mutation RemoveProduct($id: String!) {
+    removeProduct(id: $id) {
+      success
+    }
+  }
+`
+
 export const ProductsAPI = {
   async list(params: ProductListParams = {}): Promise<SafeApiResult<PaginatedProducts>> {
     const parsed = ZListParams.safeParse(params)
@@ -45,22 +120,22 @@ export const ProductsAPI = {
       return { success: false, message: m, status: null, data: null }
     }
     return safeApiCall(async () => {
-      const res = await baseClient.get("/products", { params: parsed.data, withCredentials: true })
-      return ZPaginatedProducts.parse(res.data)
+      const data = await graphqlRequest<{ products: PaginatedProducts }>(LIST_QUERY, parsed.data)
+      return ZPaginatedProducts.parse(data.products)
     })
   },
 
   async getById(id: string): Promise<SafeApiResult<ProductDetail>> {
     return safeApiCall(async () => {
-      const res = await baseClient.get(`/products/${encodeURIComponent(id)}`, { withCredentials: true })
-      return ZProductDetail.parse(res.data)
+      const data = await graphqlRequest<{ product: ProductDetail }>(GET_QUERY, { id })
+      return ZProductDetail.parse(data.product)
     })
   },
 
   async top(limit = 10): Promise<SafeApiResult<ProductDetail[]>> {
     return safeApiCall(async () => {
-      const res = await baseClient.get("/products/top", { params: { limit }, withCredentials: true })
-      return z.array(ZProductDetail).parse(res.data)
+      const data = await graphqlRequest<{ topProducts: ProductDetail[] }>(TOP_QUERY, { limit })
+      return z.array(ZProductDetail).parse(data.topProducts)
     })
   },
 
@@ -71,8 +146,8 @@ export const ProductsAPI = {
       return { success: false, message: m, status: null, data: null }
     }
     return safeApiCall(async () => {
-      const res = await baseClient.post("/products", parsed.data, { withCredentials: true })
-      return ZProductDetail.parse(res.data)
+      const data = await graphqlRequest<{ createProduct: ProductDetail }>(CREATE_MUTATION, { input: parsed.data })
+      return ZProductDetail.parse(data.createProduct)
     })
   },
 
@@ -83,15 +158,15 @@ export const ProductsAPI = {
       return { success: false, message: m, status: null, data: null }
     }
     return safeApiCall(async () => {
-      const res = await baseClient.put(`/products/${encodeURIComponent(id)}`, parsed.data, { withCredentials: true })
-      return ZProductDetail.parse(res.data)
+      const data = await graphqlRequest<{ updateProduct: ProductDetail }>(UPDATE_MUTATION, { id, input: parsed.data })
+      return ZProductDetail.parse(data.updateProduct)
     })
   },
 
   async remove(id: string): Promise<SafeApiResult<{ success: boolean }>> {
     return safeApiCall(async () => {
-      const res = await baseClient.delete(`/products/${encodeURIComponent(id)}`, { withCredentials: true })
-      return res.data
+      const data = await graphqlRequest<{ removeProduct: { success: boolean } }>(REMOVE_MUTATION, { id })
+      return data.removeProduct
     })
   },
 }
