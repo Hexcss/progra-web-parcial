@@ -14,10 +14,52 @@ export class AllExceptionsFilter implements ExceptionFilter {
   constructor(private readonly logger: AppLogger) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
+    const { status, messages } = this.describeException(exception);
+
+    if (host.getType<'graphql' | 'http'>() === 'graphql') {
+      this.logger.error(
+        {
+          event: 'exception',
+          status,
+          messages,
+          path: 'graphql',
+          method: 'GRAPHQL',
+          stack: exception instanceof Error ? exception.stack : undefined,
+        },
+        exception instanceof Error ? exception.stack : undefined,
+        'ExceptionFilter',
+      );
+      return exception as any;
+    }
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
+    this.logger.error(
+      {
+        event: 'exception',
+        status,
+        messages,
+        path: request.url,
+        method: request.method,
+        requestId: request.headers['x-request-id'] as string | undefined,
+        stack: exception instanceof Error ? exception.stack : undefined,
+      },
+      exception instanceof Error ? exception.stack : undefined,
+      'ExceptionFilter',
+    );
+
+    response.status(status).json({
+      statusCode: status,
+      errors: messages,
+      path: request.url,
+      timestamp: new Date().toISOString(),
+      requestId: request.headers['x-request-id'] as string | undefined,
+    });
+  }
+
+  private describeException(exception: unknown) {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let messages: string[] = ['Internal server error'];
 
@@ -48,26 +90,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
       messages = [exception.message];
     }
 
-    this.logger.error(
-      {
-        event: 'exception',
-        status,
-        messages,
-        path: request.url,
-        method: request.method,
-        requestId: request.headers['x-request-id'] as string | undefined,
-        stack: exception instanceof Error ? exception.stack : undefined,
-      },
-      exception instanceof Error ? exception.stack : undefined,
-      'ExceptionFilter',
-    );
-
-    response.status(status).json({
-      statusCode: status,
-      errors: messages,
-      path: request.url,
-      timestamp: new Date().toISOString(),
-      requestId: request.headers['x-request-id'] as string | undefined,
-    });
+    return { status, messages };
   }
 }

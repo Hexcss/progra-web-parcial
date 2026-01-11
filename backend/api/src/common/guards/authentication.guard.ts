@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { GqlExecutionContext } from '@nestjs/graphql';
 import type { Request, Response } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { AuthService } from '../../modules/auth/auth.service';
@@ -40,9 +41,7 @@ export class AuthenticationGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
-    const http = context.switchToHttp();
-    const req = http.getRequest<Req>();
-    const res = http.getResponse<Response>();
+    const { req, res } = this.getRequestResponse(context);
     const cookies = req.cookies ?? {};
 
     const at = cookies[this.atName];
@@ -81,6 +80,15 @@ export class AuthenticationGuard implements CanActivate {
 
     this.logger.warn(`unauthorized ${meta}`);
     throw new UnauthorizedException({ message: 'Unauthorized' });
+  }
+
+  private getRequestResponse(context: ExecutionContext) {
+    if (context.getType<'graphql' | 'http'>() === 'graphql') {
+      const gqlCtx = GqlExecutionContext.create(context).getContext<{ req: Req; res: Response }>();
+      return { req: gqlCtx.req, res: gqlCtx.res };
+    }
+    const http = context.switchToHttp();
+    return { req: http.getRequest<Req>(), res: http.getResponse<Response>() };
   }
 
   private buildMeta(req: Req): string {

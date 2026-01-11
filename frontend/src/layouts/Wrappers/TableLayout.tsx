@@ -63,7 +63,6 @@ export const TableLayout: React.FC<FrontendTableLayoutProps> = ({
             zIndex: (t) => t.zIndex.appBar,
             bgcolor: "background.paper",
             py: 1,
-            pb: 3,
           }}
         >
           <Stack direction="row" spacing={2} alignItems="center">

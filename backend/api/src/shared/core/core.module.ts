@@ -13,7 +13,7 @@ import {
   APP_PIPE,
   ModuleRef,
 } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthenticationGuard } from '../../common/guards/authentication.guard';
 import { AllExceptionsFilter } from '../../common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from '../../common/interceptors/logging.interceptor';
@@ -23,6 +23,7 @@ import { AuthModule } from '../../modules/auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppLogger } from 'src/common/logger/logger.service';
 import { AuthorizationGuard } from 'src/common/guards/authorization.guard';
+import { GqlThrottlerGuard } from 'src/common/guards/throttler.guard';
 
 @Global()
 @Module({
@@ -55,7 +56,7 @@ import { AuthorizationGuard } from 'src/common/guards/authorization.guard';
           stopAtFirstError: false,
         }),
     },
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: GqlThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthenticationGuard },
     { provide: APP_GUARD, useClass: AuthorizationGuard },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },

@@ -1,6 +1,8 @@
 // src/schemas/market.schemas.ts
 import { z } from "zod"
 
+const ZTags = z.preprocess((v) => (v == null ? undefined : v), z.array(z.string()).default([]))
+
 export const ZActiveDiscount = z.object({
   discountPercent: z.number().min(0).max(100),
   startDate: z.string().datetime(),
@@ -11,35 +13,35 @@ export type ActiveDiscount = z.infer<typeof ZActiveDiscount>
 export const ZProductBase = z.object({
   _id: z.string(),
   name: z.string(),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   price: z.number().nonnegative(),
   stock: z.number().int().nonnegative(),
-  imageUrl: z.string().url().optional(),
-  category: z.string().optional(),
-  categoryId: z.string().optional(),
-  tags: z.array(z.string()).default([]),
-  createdBy: z.string().optional(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  imageUrl: z.string().url().nullable().optional(),
+  category: z.string().nullable().optional(),
+  categoryId: z.string().nullable().optional(),
+  tags: ZTags,
+  createdBy: z.string().nullable().optional(),
+  createdAt: z.string().datetime().nullable().optional(),
+  updatedAt: z.string().datetime().nullable().optional(),
 })
 export type ProductBase = z.infer<typeof ZProductBase>
 
 export const ZProductEnriched = ZProductBase.extend({
   avgRating: z.number().min(0).max(5).nullable().optional(),
-  reviewCount: z.number().int().nonnegative().optional(),
+  reviewCount: z.number().int().nonnegative().nullable().optional(),
   activeDiscount: ZActiveDiscount.nullable().optional(),
 })
 export type ProductEnriched = z.infer<typeof ZProductEnriched>
 
 export const ZCreateProductPayload = z.object({
   name: z.string().min(1),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   price: z.number().nonnegative(),
   stock: z.number().int().nonnegative(),
-  imageUrl: z.string().url().optional(),
-  category: z.string().optional(),
-  categoryId: z.string().optional(),
-  tags: z.array(z.string()).optional(),
+  imageUrl: z.string().url().nullable().optional(),
+  category: z.string().nullable().optional(),
+  categoryId: z.string().nullable().optional(),
+  tags: z.array(z.string()).nullable().optional(),
 })
 export type CreateProductPayload = z.infer<typeof ZCreateProductPayload>
 
@@ -50,13 +52,13 @@ export const ZCategory = z.object({
   _id: z.string(),
   name: z.string(),
   icon: z.string(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  createdAt: z.string().datetime().nullable().optional(),
+  updatedAt: z.string().datetime().nullable().optional(),
 })
 export type Category = z.infer<typeof ZCategory>
 
 export const ZCategoryEnriched = ZCategory.extend({
-  productCount: z.number().int().nonnegative(),
+  productCount: z.number().int().nonnegative().nullable().optional(),
   thumbnail: z.string().nullable(),
 })
 export type CategoryEnriched = z.infer<typeof ZCategoryEnriched>
@@ -66,16 +68,16 @@ export const ZReview = z.object({
   productId: z.string(),
   userId: z.string(),
   score: z.number().min(1).max(5),
-  comment: z.string().optional(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  comment: z.string().nullable().optional(),
+  createdAt: z.string().datetime().nullable().optional(),
+  updatedAt: z.string().datetime().nullable().optional(),
 })
 export type Review = z.infer<typeof ZReview>
 
 export const ZCreateReviewPayload = z.object({
   productId: z.string(),
   score: z.number().min(1).max(5),
-  comment: z.string().optional(),
+  comment: z.string().nullable().optional(),
 })
 export type CreateReviewPayload = z.infer<typeof ZCreateReviewPayload>
 
@@ -88,8 +90,8 @@ export const ZDiscount = z.object({
   discountPercent: z.number().min(0).max(100),
   startDate: z.string().datetime(),
   endDate: z.string().datetime(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  createdAt: z.string().datetime().nullable().optional(),
+  updatedAt: z.string().datetime().nullable().optional(),
 })
 export type Discount = z.infer<typeof ZDiscount>
 

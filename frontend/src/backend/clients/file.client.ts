@@ -1,5 +1,5 @@
 // src/backend/clients/file.client.ts
-import axios, { AxiosError, type AxiosRequestConfig } from "axios";
+import axios, { AxiosError, type AxiosRequestConfig, type AxiosResponse } from "axios";
 import { env } from "../../config/env";
 import { normalizeMessage } from "../../utils/functions/mormalize-message.function";
 import { queueSnackbarForNextLoad, showSnackbar } from "../../signals/snackbar.signal";
@@ -24,15 +24,47 @@ fileClient.interceptors.request.use((config) => {
       delete (config.headers as any)?.["Content-Type"];
       delete (config.headers as any)?.["content-type"];
     } catch {}
+    try {
+      (config.headers as any)["apollo-require-preflight"] = "true";
+    } catch {}
   }
   return config;
 });
 
 let sessionNotified = false;
 
+const buildGraphqlError = (response: AxiosResponse<any>) => {
+  const errors = response?.data?.errors;
+  if (!Array.isArray(errors) || errors.length === 0) return null;
+  const first = errors[0] ?? {};
+  const ext = (first as any)?.extensions ?? {};
+  const status =
+    ext?.originalError?.statusCode ??
+    ext?.response?.statusCode ??
+    ext?.statusCode ??
+    400;
+  const data =
+    ext?.response ??
+    ext?.originalError ??
+    { message: (first as any)?.message ?? "GraphQL error" };
+  if (data && typeof data === "object" && !("message" in data)) {
+    (data as any).message = (first as any)?.message ?? "GraphQL error";
+  }
+  const gqlResponse = { ...response, status, data };
+  return new AxiosError(
+    (first as any)?.message ?? "GraphQL error",
+    undefined,
+    response.config,
+    response.request,
+    gqlResponse
+  );
+};
+
 fileClient.interceptors.response.use(
   (res) => {
     sessionNotified = false;
+    const gqlError = buildGraphqlError(res);
+    if (gqlError) return Promise.reject(gqlError);
     return res;
   },
   (error: AxiosError<any>) => {

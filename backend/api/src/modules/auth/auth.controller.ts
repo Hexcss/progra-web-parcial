@@ -1,43 +1,25 @@
 // src/modules/auth/auth.controller.ts
 import {
-  Body,
+  BadRequestException,
   Controller,
   Get,
-  HttpCode,
-  Post,
   Query,
-  Res,
-  UseGuards,
   Req,
-  BadRequestException,
+  Res,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import { ConfigService } from '@nestjs/config';
-import type { Response, Request } from 'express';
-import { clearAuthCookies, setAuthCookies } from '../../common/utils/cookie.util';
-import { CurrentUser } from '../../common/decorators/user.decorator';
-import { Public } from '../../common/decorators/public.decorator';
-import { AuthenticationGuard } from '../../common/guards/authentication.guard';
-import {
-  ApiBody,
-  ApiCookieAuth,
-  ApiCreatedResponse,
-  ApiOkResponse,
-  ApiOperation,
-  ApiTags,
-  ApiUnauthorizedResponse,
-} from '@nestjs/swagger';
+import type { Request, Response } from 'express';
 import { randomBytes } from 'crypto';
+import { ConfigService } from '@nestjs/config';
+import { AuthService } from './auth.service';
+import { Public } from '../../common/decorators/public.decorator';
+import { setAuthCookies } from '../../common/utils/cookie.util';
 
-@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly cfg: ConfigService,
-  ) { }
+  ) {}
 
   private isProd() {
     const v = (this.cfg.get<string>('NODE_ENV') || process.env.NODE_ENV || '').toLowerCase();
@@ -70,124 +52,6 @@ export class AuthController {
     const host = xfHost || this.cfg.get<string>('publicHost');
     const proto = xfProto || 'http';
     return `${proto}://${host}`;
-  }
-
-  @ApiOperation({ summary: 'Register user and set auth cookies' })
-  @ApiBody({ type: RegisterDto })
-  @ApiCreatedResponse({
-    schema: {
-      type: 'object',
-      properties: {
-        user: {
-          type: 'object',
-          properties: {
-            _id: { type: 'string' },
-            email: { type: 'string', format: 'email' },
-            displayName: { type: 'string', nullable: true },
-            role: { type: 'string', enum: ['user', 'admin'] },
-            emailVerified: { type: 'boolean' },
-            createdAt: { type: 'string', format: 'date-time' },
-            updatedAt: { type: 'string', format: 'date-time' },
-          },
-        },
-        verificationEmail: {
-          type: 'object',
-          properties: {
-            attempted: { type: 'boolean' },
-            sent: { type: 'boolean' },
-            id: { type: 'string', nullable: true },
-            error: { type: 'string', nullable: true },
-          }
-        }
-      },
-    },
-  })
-  @Public()
-  @Post('register')
-  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response, @Req() req: Request) {
-    const result = await this.auth.register(dto.email, dto.password, dto.displayName);
-    setAuthCookies(res, this.cfg, {
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-    });
-    const origin = this.resolveServerOrigin(req);
-    const verificationEmail = await this.auth.maybeSendEmailVerification(result.user, origin);
-    return { user: result.user, verificationEmail };
-  }
-
-  @ApiOperation({ summary: 'Login and set auth cookies' })
-  @ApiBody({ type: LoginDto })
-  @ApiOkResponse({
-    schema: {
-      type: 'object',
-      properties: {
-        user: {
-          type: 'object',
-          properties: {
-            _id: { type: 'string' },
-            email: { type: 'string', format: 'email' },
-            displayName: { type: 'string', nullable: true },
-            role: { type: 'string', enum: ['user', 'admin'] },
-            emailVerified: { type: 'boolean' },
-            createdAt: { type: 'string', format: 'date-time' },
-            updatedAt: { type: 'string', format: 'date-time' },
-          },
-        },
-      },
-    },
-  })
-  @Public()
-  @HttpCode(200)
-  @Post('login')
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const result = await this.auth.login(dto.email, dto.password);
-    setAuthCookies(res, this.cfg, {
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-    });
-    return { user: result.user };
-  }
-
-  @ApiCookieAuth('accessToken')
-  @ApiOperation({ summary: 'Get current session payload' })
-  @ApiOkResponse({
-    schema: {
-      type: 'object',
-      properties: {
-        sub: { type: 'string' },
-        email: { type: 'string', format: 'email' },
-        role: { type: 'string', enum: ['user', 'admin'] },
-      },
-    },
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  @UseGuards(AuthenticationGuard)
-  @Get('me')
-  async me(@CurrentUser() user: any) {
-    return { sub: user.sub, email: user.email, role: user.role };
-  }
-
-  @ApiCookieAuth('accessToken')
-  @ApiOperation({ summary: 'Logout and clear cookies' })
-  @ApiOkResponse({
-    schema: {
-      type: 'object',
-      properties: { success: { type: 'boolean' } },
-    },
-  })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  @UseGuards(AuthenticationGuard)
-  @Post('logout')
-  async logout(@Res({ passthrough: true }) res: Response) {
-    await this.auth.logout();
-    clearAuthCookies(res, this.cfg);
-    return { success: true };
-  }
-
-  @Get('ws-ticket')
-  async getWsTicket(@CurrentUser() user: any) {
-    const token = await this.auth.createWsTicket(user);
-    return { token };
   }
 
   @Public()

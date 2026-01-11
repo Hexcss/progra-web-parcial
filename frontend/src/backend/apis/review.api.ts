@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { baseClient } from "../clients/base.client"
+import { graphqlRequest } from "../clients/graphql.client"
 import { safeApiCall, type SafeApiResult } from "../../utils/functions/safe-api-call.function"
 import {
   ZReview,
@@ -77,6 +77,67 @@ function extractEntity<T extends z.ZodTypeAny>(body: any, schema: T): z.infer<T>
   return schema.parse(payload)
 }
 
+const REVIEW_FIELDS = `
+  _id
+  productId
+  userId
+  score
+  comment
+  createdAt
+  updatedAt
+  user {
+    _id
+    displayName
+    email
+    avatarUrl
+  }
+`
+
+const LIST_QUERY = `
+  query Reviews($productId: String, $page: Int, $limit: Int, $userId: String) {
+    reviews(productId: $productId, page: $page, limit: $limit, userId: $userId) {
+      items {
+        ${REVIEW_FIELDS}
+      }
+      total
+      page
+      limit
+    }
+  }
+`
+
+const GET_QUERY = `
+  query Review($id: String!) {
+    review(id: $id) {
+      ${REVIEW_FIELDS}
+    }
+  }
+`
+
+const CREATE_MUTATION = `
+  mutation CreateReview($input: CreateReviewDto!) {
+    createReview(input: $input) {
+      ${REVIEW_FIELDS}
+    }
+  }
+`
+
+const UPDATE_MUTATION = `
+  mutation UpdateReview($id: String!, $input: UpdateReviewDto!) {
+    updateReview(id: $id, input: $input) {
+      ${REVIEW_FIELDS}
+    }
+  }
+`
+
+const REMOVE_MUTATION = `
+  mutation RemoveReview($id: String!) {
+    removeReview(id: $id) {
+      success
+    }
+  }
+`
+
 export const ReviewsAPI = {
   async list(params: ReviewListParams = {}): Promise<SafeApiResult<PaginatedReviews>> {
     const parsed = ZListParams.safeParse(params)
@@ -85,15 +146,15 @@ export const ReviewsAPI = {
       return { success: false, message: m, status: null, data: null }
     }
     return safeApiCall(async () => {
-      const res = await baseClient.get("/reviews", { params: parsed.data, withCredentials: true })
-      return extractListPayload(res.data, parsed.data.page, parsed.data.limit)
+      const data = await graphqlRequest<{ reviews: PaginatedReviews }>(LIST_QUERY, parsed.data)
+      return extractListPayload(data.reviews, parsed.data.page, parsed.data.limit)
     })
   },
 
   async getById(id: string): Promise<SafeApiResult<ReviewEnriched>> {
     return safeApiCall(async () => {
-      const res = await baseClient.get(`/reviews/${encodeURIComponent(id)}`, { withCredentials: true })
-      return extractEntity(res.data, ZReviewEnriched)
+      const data = await graphqlRequest<{ review: ReviewEnriched }>(GET_QUERY, { id })
+      return extractEntity(data.review, ZReviewEnriched)
     })
   },
 
@@ -104,8 +165,8 @@ export const ReviewsAPI = {
       return { success: false, message: m, status: null, data: null }
     }
     return safeApiCall(async () => {
-      const res = await baseClient.post("/reviews", parsed.data, { withCredentials: true })
-      return extractEntity(res.data, ZReviewEnriched)
+      const data = await graphqlRequest<{ createReview: ReviewEnriched }>(CREATE_MUTATION, { input: parsed.data })
+      return extractEntity(data.createReview, ZReviewEnriched)
     })
   },
 
@@ -116,16 +177,15 @@ export const ReviewsAPI = {
       return { success: false, message: m, status: null, data: null }
     }
     return safeApiCall(async () => {
-      const res = await baseClient.put(`/reviews/${encodeURIComponent(id)}`, parsed.data, { withCredentials: true })
-      return extractEntity(res.data, ZReviewEnriched)
+      const data = await graphqlRequest<{ updateReview: ReviewEnriched }>(UPDATE_MUTATION, { id, input: parsed.data })
+      return extractEntity(data.updateReview, ZReviewEnriched)
     })
   },
 
   async remove(id: string): Promise<SafeApiResult<{ success: boolean }>> {
     return safeApiCall(async () => {
-      const res = await baseClient.delete(`/reviews/${encodeURIComponent(id)}`, { withCredentials: true })
-      const payload = res.data && typeof res.data === "object" && "data" in res.data ? res.data.data : res.data
-      return payload
+      const data = await graphqlRequest<{ removeReview: { success: boolean } }>(REMOVE_MUTATION, { id })
+      return data.removeReview
     })
   },
 }

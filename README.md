@@ -1,6 +1,6 @@
 # Progra Web Parcial — Documentación del Sistema
 
-> Proyecto universitario de arquitectura web moderna con **Frontend (React + Vite + MUI)**, **API REST (NestJS)**, **Gateway WebSocket (NestJS + Socket.IO)** y **MongoDB**. Desplegado en **Google Cloud Run** con **CI/CD en GitHub Actions** y autenticación mediante **JWT en cookies HttpOnly** y **OAuth (Google y GitHub)**.
+> Proyecto universitario de arquitectura web moderna con **Frontend (React + Vite + MUI)**, **API GraphQL (NestJS + Apollo)**, **Gateway WebSocket (NestJS + Socket.IO)** y **MongoDB**. Desplegado en **Google Cloud Run** con **CI/CD en GitHub Actions** y autenticación mediante **JWT en cookies HttpOnly** y **OAuth (Google y GitHub)**.
 
 - Link del Repositorio: https://github.com/Hexcss/progra-web-parcial.git
 - Link del Sitio: https://store.hexcss.com
@@ -9,23 +9,24 @@
 
 1. [Objetivo del proyecto](#objetivo-del-proyecto)  
 2. [Visión general de la arquitectura](#visión-general-de-la-arquitectura)  
-3. [Decisiones de diseño (el “por qué”)](#decisiones-de-diseño-el-por-qué)  
+3. [API GraphQL y migración desde HTTP](#api-graphql-y-migración-desde-http)  
+4. [Decisiones de diseño (el “por qué”)](#decisiones-de-diseño-el-por-qué)  
    - [Separación en servicios (sistema distribuido)](#separación-en-servicios-sistema-distribuido)  
    - [JWT en cookies HttpOnly vs LocalStorage](#jwt-en-cookies-httponly-vs-localstorage)  
    - [Autenticación para WebSockets](#autenticación-para-websockets)  
    - [Elección de Google Cloud Run](#elección-de-google-cloud-run)  
    - [Uso de OAuth (Google y GitHub)](#uso-de-oauth-google-y-github)  
    - [Argon2 frente a bcrypt](#argon2-frente-a-bcrypt)  
-4. [Modelo de datos (MongoDB)](#modelo-de-datos-mongodb)  
-5. [Estructura del repositorio](#estructura-del-repositorio)  
-6. [Requisitos previos](#requisitos-previos)  
-7. [Variables de entorno](#variables-de-entorno)  
-8. [Puesta en marcha local](#puesta-en-marcha-local)  
-9. [Despliegue en Google Cloud Run](#despliegue-en-google-cloud-run)  
-10. [CI/CD con GitHub Actions](#cicd-con-github-actions)  
-11. [Pruebas manuales recomendadas](#pruebas-manuales-recomendadas)  
-12. [Resumen técnico de decisiones](#resumen-técnico-de-decisiones)  
-13. [Licencia y autores](#licencia-y-autores)
+5. [Modelo de datos (MongoDB)](#modelo-de-datos-mongodb)  
+6. [Estructura del repositorio](#estructura-del-repositorio)  
+7. [Requisitos previos](#requisitos-previos)  
+8. [Variables de entorno](#variables-de-entorno)  
+9. [Puesta en marcha local](#puesta-en-marcha-local)  
+10. [Despliegue en Google Cloud Run](#despliegue-en-google-cloud-run)  
+11. [CI/CD con GitHub Actions](#cicd-con-github-actions)  
+12. [Pruebas manuales recomendadas](#pruebas-manuales-recomendadas)  
+13. [Resumen técnico de decisiones](#resumen-técnico-de-decisiones)  
+14. [Licencia y autores](#licencia-y-autores)
 
 
 ## Objetivo del proyecto
@@ -33,7 +34,7 @@
 Construir una aplicación web moderna, segura y escalable que permita:
 
 - Autenticación con **email/contraseña** y **OAuth (Google/GitHub)**.  
-- Consumo de un **API REST** con **JWT en cookies HttpOnly**.  
+- Consumo de un **API GraphQL** con **JWT en cookies HttpOnly**.  
 - **Chat de soporte** en tiempo real mediante Gateway **WebSocket**.  
 - Persistencia en **MongoDB**.  
 - Despliegue reproducible y de bajo mantenimiento en **Google Cloud Run**.  
@@ -43,10 +44,10 @@ Construir una aplicación web moderna, segura y escalable que permita:
 ## Visión general de la arquitectura
 
 - **Frontend (React + Vite + MUI)**: interfaz del marketplace/portal, flujo de login/signup, inicio de OAuth, consumo del API vía fetch/axios y conexión a WebSocket con ticket efímero.
-- **API REST (NestJS)**:  
+- **API GraphQL (NestJS + Apollo)**:  
   - Autenticación con **JWT** (cookies HttpOnly, `SameSite=Lax`, rotación de tokens).  
   - **OAuth** con Google y GitHub (intercambio de código en el servidor, emisión de cookies y redirección al cliente).  
-  - Endpoints de negocio (usuarios, soporte, etc.).  
+  - Operaciones GraphQL (queries/mutations) para usuarios, productos, pedidos, etc.  
   - Emisión de **tickets cortos** para el **handshake WebSocket**.
 - **Gateway WebSocket (NestJS + Socket.IO)**:  
   - Conexión autenticada con **ticket de 60s**.  
@@ -54,6 +55,23 @@ Construir una aplicación web moderna, segura y escalable que permita:
 - **MongoDB**: base de datos documental para usuarios, salas y mensajes.  
 - **CI/CD con GitHub Actions**: sincroniza subcarpetas a ramas homónimas y posibilita pipelines independientes.  
 - **Google Cloud Run**: contenedores serverless, HTTPS, autoscaling y soporte de WebSockets.
+
+## API GraphQL y migración desde HTTP
+
+La API del proyecto ahora se expone mediante **GraphQL** en `POST /graphql`. El esquema se genera en modo **code-first** (NestJS + Apollo), con resolvers que reemplazan a los controllers REST sin cambiar la lógica de negocio (los servicios siguen igual).
+
+Flujo resumido:
+- **Frontend** usa `frontend/src/backend/clients/graphql.client.ts` y operaciones en `frontend/src/backend/apis/*.api.ts`.
+- **Backend** define resolvers en `backend/api/src/modules/*/*.resolver.ts` y genera el esquema en `backend/api/schema.gql`.
+- **Uploads** usan `Upload` y multipart GraphQL (`files.api.ts`), con `graphql-upload` en el servidor.
+- **REST** queda solo para OAuth/verify-email (rutas en `backend/api/src/modules/auth/auth.controller.ts`).
+
+Beneficios principales:
+- **Menos endpoints** y menos acoplamiento entre cliente y servidor.
+- **Evita overfetch/underfetch**: el cliente pide solo lo que necesita.
+- **Tipado** y **documentación automática** con el schema.
+
+Más detalle: ver `docs/graphql.md`.
 
 ## Decisiones de diseño (el “por qué”)
 
@@ -76,7 +94,7 @@ Construir una aplicación web moderna, segura y escalable que permita:
 ### Autenticación para WebSockets
 
 - Los handshakes **no** comparten las mismas garantías de cookies que `fetch`.  
-- Se utiliza un **ticket JWT efímero (≈60s)** emitido por el API (`GET /auth/ws-ticket`).  
+- Se utiliza un **ticket JWT efímero (≈60s)** emitido por el API (`query wsTicket`).  
 - El cliente abre Socket.IO con `auth: { token }`.  
 - El Gateway valida el ticket y establece la sesión WS sin exponer refresh tokens.
 
@@ -123,7 +141,7 @@ Se adoptó **MongoDB** por su orientación a documentos, agilidad de iteración 
 ```text
 /
 ├─ backend/
-│  ├─ api/           # NestJS API (REST, Auth, OAuth, emisión de tickets WS)
+│  ├─ api/           # NestJS API (GraphQL, Auth, OAuth, emisión de tickets WS)
 │  └─ gateway/       # NestJS Gateway (Socket.IO, chat tiempo real)
 ├─ frontend/         # React + Vite + MUI
 ├─ docs/             # (diagramas: .puml/.mmd/.dbml + PNGs)
@@ -277,4 +295,3 @@ El workflow **“Sync Folders to Branches”** crea/push ramas a partir de subca
 - **Autores:** Javier Cáder Suay
 
 > Para ampliar esta documentación se incluirán **diagramas** en la carpeta `/docs/` (PUML/Mermaid/DBML + PNGs) describiendo componentes, secuencias (login/OAuth) y el modelo de datos.
-

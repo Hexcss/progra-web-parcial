@@ -2,12 +2,11 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Review, ReviewSchema } from './entities/review.entity';
 import { ReviewsService } from './reviews.service';
-import { ReviewsController } from './reviews.controller';
+import { ReviewsResolver } from './reviews.resolver';
 
 @Module({
     imports: [MongooseModule.forFeature([{ name: Review.name, schema: ReviewSchema }])],
-    controllers: [ReviewsController],
-    providers: [ReviewsService],
+    providers: [ReviewsService, ReviewsResolver],
     exports: [ReviewsService],
 })
 export class ReviewsModule { }
