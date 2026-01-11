@@ -21,6 +21,7 @@ export class WsAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const client = context.switchToWs().getClient<any>();
+    if (client?.data?.__wsAuthed && client?.data?.user) return true;
 
     const cookies = parseCookies(client?.handshake?.headers?.cookie || '');
     const cookieAT = cookies['accessToken'];
@@ -45,6 +46,7 @@ export class WsAuthGuard implements CanActivate {
         const payload = await this.auth.verifyToken(accessToken, false);
         client.data = client.data || {};
         client.data.user = payload;
+        client.data.__wsAuthed = true;
         return true;
       } catch (e: any) {
         this.logger.warn(`WS auth: access token rejected (${e?.message ?? 'unknown'})`);
@@ -58,6 +60,7 @@ export class WsAuthGuard implements CanActivate {
         // but we can authenticate this socket with the refreshed payload.
         client.data = client.data || {};
         client.data.user = { sub: user._id, email: user.email, role: user.role };
+        client.data.__wsAuthed = true;
 
         // Optionally expose refreshed tokens to later stages (e.g., gateway can emit an event if you want)
         client.data.__refreshedTokens = { accessToken: newAT, refreshToken: newRT };
