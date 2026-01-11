@@ -1,5 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
+import { GraphQLModule, registerEnumType } from '@nestjs/graphql';
+import { join } from 'path';
+import GraphQLUpload from 'graphql-upload/GraphQLUpload.mjs';
 import { envSchema } from './config/env.validation';
 import { appConfig } from './config/app.config';
 import { AppLogger } from './common/logger/logger.service';
@@ -15,6 +19,9 @@ import { DiscountsModule } from './modules/discounts/discount.module';
 import { FilesModule } from './shared/files/files.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { EmailModule } from './shared/email/email.module';
+import { Role } from './common/enums/role.enum';
+
+registerEnumType(Role, { name: 'Role' });
 
 @Module({
   imports: [
@@ -34,7 +41,15 @@ import { EmailModule } from './shared/email/email.module';
       },
     }),
     CoreModule,
-    
+    GraphQLModule.forRoot<ApolloDriverConfig>({
+      driver: ApolloDriver,
+      autoSchemaFile: join(process.cwd(), 'schema.gql'),
+      sortSchema: true,
+      path: '/graphql',
+      context: ({ req, res }) => ({ req, res }),
+      buildSchemaOptions: { dateScalarMode: 'isoDate' },
+      resolvers: { Upload: GraphQLUpload },
+    }),
     HealthModule,
     DatabaseModule,
     EmailModule,

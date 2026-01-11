@@ -12,6 +12,7 @@ import cookieParser from 'cookie-parser';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { ConfigService } from '@nestjs/config';
+import graphqlUploadExpress from 'graphql-upload/graphqlUploadExpress.mjs';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true, logger: ['error', 'warn', 'log', 'debug'] });
@@ -22,6 +23,7 @@ async function bootstrap() {
 
   app.use(requestIdMiddleware);
   app.use(helmet());
+  app.use(graphqlUploadExpress({ maxFileSize: 10 * 1024 * 1024, maxFiles: 1 }));
 
   const origins = cfg.get<string[]>('corsOrigins') ?? [];
   app.enableCors({
@@ -35,7 +37,13 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-CSRF-Token',
+      'apollo-require-preflight',
+      'x-apollo-operation-name',
+    ],
   });
 
 

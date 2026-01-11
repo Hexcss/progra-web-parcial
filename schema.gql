@@ -1,0 +1,335 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type ActiveDiscount {
+  discountPercent: Float!
+  endDate: DateTime!
+  startDate: DateTime!
+}
+
+input AdminCreateUserDto {
+  displayName: String
+  email: String!
+  password: String!
+  role: Role
+}
+
+input AdminUpdateUserDto {
+  avatarUrl: String
+  displayName: String
+  role: Role
+}
+
+type AuthResponse {
+  user: User!
+  verificationEmail: EmailStatus
+}
+
+type Category {
+  _id: ID!
+  createdAt: DateTime
+  icon: String!
+  name: String!
+  productCount: Int
+  thumbnail: String
+  updatedAt: DateTime
+}
+
+type CategoryThumbnail {
+  categoryId: String!
+  thumbnail: String
+}
+
+input CreateCategoryDto {
+  icon: String!
+  name: String!
+}
+
+input CreateDiscountDto {
+  discountPercent: Float!
+  endDate: String!
+  productId: ID!
+  startDate: String!
+}
+
+input CreateOrderDto {
+  currency: String
+  items: [CreateOrderItemInput!]!
+}
+
+input CreateOrderItemInput {
+  productId: ID!
+  quantity: Int!
+}
+
+input CreateProductDto {
+  category: String
+  categoryId: ID
+  description: String
+  imageUrl: String
+  name: String!
+  price: Float!
+  stock: Int!
+  tags: [String!]
+}
+
+input CreateReviewDto {
+  comment: String
+  productId: ID!
+  score: Float!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type DeleteResponse {
+  success: Boolean!
+}
+
+type Discount {
+  _id: ID!
+  createdAt: DateTime
+  discountPercent: Float!
+  endDate: DateTime!
+  productId: ID!
+  startDate: DateTime!
+  updatedAt: DateTime
+}
+
+type EmailStatus {
+  attempted: Boolean!
+  error: String
+  id: String
+  sent: Boolean!
+}
+
+type FilenameResponse {
+  filename: String!
+}
+
+type HealthStatus {
+  ok: Boolean!
+  ts: DateTime!
+}
+
+input LoginDto {
+  email: String!
+  password: String!
+}
+
+type Mutation {
+  createCategory(input: CreateCategoryDto!): Category!
+  createDiscount(input: CreateDiscountDto!): Discount!
+  createOrder(input: CreateOrderDto!): Order!
+  createProduct(input: CreateProductDto!): Product!
+  createReview(input: CreateReviewDto!): Review!
+  createUser(input: AdminCreateUserDto!): User!
+  deleteFile(url: String!): DeleteResponse!
+  login(input: LoginDto!): AuthResponse!
+  logout: DeleteResponse!
+  register(input: RegisterDto!): AuthResponse!
+  removeCategory(id: String!): DeleteResponse!
+  removeDiscount(id: String!): DeleteResponse!
+  removeProduct(id: String!): DeleteResponse!
+  removeReview(id: String!): DeleteResponse!
+  removeUser(id: String!): DeleteResponse!
+  updateCategory(id: String!, input: UpdateCategoryDto!): Category!
+  updateDiscount(id: String!, input: UpdateDiscountDto!): Discount!
+  updateOrderStatus(id: String!, input: UpdateOrderDto!): Order!
+  updateProduct(id: String!, input: UpdateProductDto!): Product!
+  updateProfile(input: UpdateUserDto!): User!
+  updateReview(id: String!, input: UpdateReviewDto!): Review!
+  updateUser(id: String!, input: AdminUpdateUserDto!): User!
+  uploadFile(file: Upload!, folder: String): UploadedFile!
+}
+
+type Order {
+  _id: ID!
+  createdAt: DateTime
+  currency: String
+  email: String
+  emailStatus: EmailStatus
+  items: [OrderItem!]!
+  status: String
+  subtotal: Float!
+  total: Float!
+  updatedAt: DateTime
+  userId: ID!
+}
+
+type OrderItem {
+  discountPercent: Float
+  imageUrl: String
+  lineTotal: Float!
+  name: String!
+  productId: ID!
+  quantity: Int!
+  unitPrice: Float!
+}
+
+type PaginatedOrders {
+  items: [Order!]!
+  limit: Int!
+  page: Int!
+  total: Int!
+}
+
+type PaginatedProducts {
+  items: [Product!]!
+  limit: Int!
+  page: Int!
+  total: Int!
+}
+
+type PaginatedReviews {
+  items: [Review!]!
+  limit: Int!
+  page: Int!
+  total: Int!
+}
+
+type PaginatedUsers {
+  items: [User!]!
+  limit: Int!
+  page: Int!
+  total: Int!
+}
+
+type Product {
+  _id: ID!
+  activeDiscount: ActiveDiscount
+  avgRating: Float
+  category: String
+  categoryId: ID
+  createdAt: DateTime
+  createdBy: ID
+  description: String
+  imageUrl: String
+  name: String!
+  price: Float!
+  reviewCount: Int
+  stock: Int!
+  tags: [String!]
+  updatedAt: DateTime
+}
+
+type Query {
+  categories: [Category!]!
+  category(id: String!): Category!
+  categoryThumbnail(id: String!): CategoryThumbnail!
+  discount(id: String!): Discount!
+  discounts(limit: Int, page: Int, productId: String): [Discount!]!
+  fileName(url: String!): FilenameResponse!
+  health: HealthStatus!
+  me: User
+  myOrders(limit: Int, page: Int): PaginatedOrders!
+  order(id: String!): Order!
+  orders(limit: Int, page: Int): PaginatedOrders!
+  product(id: String!): Product!
+  products(category: String, categoryId: String, limit: Int, maxPrice: Float, minPrice: Float, page: Int, q: String, sort: String, tags: [String!]): PaginatedProducts!
+  review(id: String!): Review!
+  reviews(limit: Int, page: Int, productId: String, userId: String): PaginatedReviews!
+  session: SessionPayload!
+  topProducts(limit: Int): [Product!]!
+  user(id: String!): User
+  users(limit: Int, page: Int, q: String, role: Role): PaginatedUsers!
+  wsTicket: String!
+}
+
+input RegisterDto {
+  displayName: String!
+  email: String!
+  password: String!
+}
+
+type Review {
+  _id: ID!
+  comment: String
+  createdAt: DateTime
+  productId: ID!
+  score: Float!
+  updatedAt: DateTime
+  user: ReviewUser
+  userId: ID!
+}
+
+type ReviewUser {
+  _id: ID
+  avatarUrl: String
+  displayName: String
+  email: String
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+type SessionPayload {
+  email: String!
+  role: Role!
+  sub: String!
+}
+
+input UpdateCategoryDto {
+  icon: String
+  name: String
+}
+
+input UpdateDiscountDto {
+  discountPercent: Float
+  endDate: String
+  productId: ID
+  startDate: String
+}
+
+input UpdateOrderDto {
+  status: String
+}
+
+input UpdateProductDto {
+  category: String
+  categoryId: ID
+  description: String
+  imageUrl: String
+  name: String
+  price: Float
+  stock: Int
+  tags: [String!]
+}
+
+input UpdateReviewDto {
+  comment: String
+  productId: ID
+  score: Float
+}
+
+input UpdateUserDto {
+  avatarUrl: String
+  displayName: String
+}
+
+"""The `Upload` scalar type represents a file upload."""
+scalar Upload
+
+type UploadedFile {
+  filename: String!
+  key: String!
+  mimeType: String!
+  size: Int!
+  url: String!
+}
+
+type User {
+  _id: ID!
+  avatarUrl: String
+  createdAt: DateTime
+  displayName: String
+  email: String!
+  emailVerified: Boolean
+  role: Role!
+  updatedAt: DateTime
+}

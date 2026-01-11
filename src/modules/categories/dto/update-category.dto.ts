@@ -1,5 +1,6 @@
 // src/modules/categories/dto/update-category.dto.ts
-import { PartialType } from '@nestjs/mapped-types';
+import { InputType, PartialType } from '@nestjs/graphql';
 import { CreateCategoryDto } from './create-category.dto';
 
+@InputType()
 export class UpdateCategoryDto extends PartialType(CreateCategoryDto) { }

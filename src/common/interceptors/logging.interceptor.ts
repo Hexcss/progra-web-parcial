@@ -4,6 +4,7 @@ import {
   ExecutionContext,
   CallHandler,
 } from '@nestjs/common';
+import { GqlExecutionContext } from '@nestjs/graphql';
 import { Observable, tap } from 'rxjs';
 import { AppLogger } from '../logger/logger.service';
 import { Request } from 'express';
@@ -13,8 +14,10 @@ export class LoggingInterceptor implements NestInterceptor {
   constructor(private readonly logger: AppLogger) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const req = context.switchToHttp().getRequest<Request>();
-    const { method, url, headers } = req;
+    const req = this.getRequest(context);
+    const method = req?.method;
+    const url = req?.url;
+    const headers = req?.headers ?? {};
     const requestId =
       (headers['x-request-id'] as string | undefined) ?? 'no-reqid';
     const start = Date.now();
@@ -25,8 +28,8 @@ export class LoggingInterceptor implements NestInterceptor {
         this.logger.log(
           {
             event: 'request_completed',
-            method,
-            url,
+            method: method ?? 'GRAPHQL',
+            url: url ?? 'graphql',
             duration,
           },
           'HTTP',
@@ -34,5 +37,13 @@ export class LoggingInterceptor implements NestInterceptor {
         );
       }),
     );
+  }
+
+  private getRequest(context: ExecutionContext): Request | undefined {
+    if (context.getType<'graphql' | 'http'>() === 'graphql') {
+      const gqlCtx = GqlExecutionContext.create(context).getContext<{ req?: Request }>();
+      return gqlCtx.req;
+    }
+    return context.switchToHttp().getRequest<Request>();
   }
 }

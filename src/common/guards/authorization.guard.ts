@@ -8,6 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';;
+import { GqlExecutionContext } from '@nestjs/graphql';
 import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { MIN_ROLE_KEY } from '../decorators/role.decorator';
@@ -34,7 +35,7 @@ export class AuthorizationGuard implements CanActivate {
     ]);
     if (!requiredLevel) return true;
 
-    const req = context.switchToHttp().getRequest<Request & { user?: ReqUser }>();
+    const req = this.getRequest(context);
     const user = req.user;
 
     const meta = `method=${req.method} path=${req.originalUrl ?? req.url}`;
@@ -65,5 +66,13 @@ export class AuthorizationGuard implements CanActivate {
       `Access granted: role=${user.role}(${currentLevel}) >= required(${requiredLevel}) (${meta}) sub=${user.sub ?? 'n/a'}`,
     );
     return true;
+  }
+
+  private getRequest(context: ExecutionContext) {
+    if (context.getType<'graphql' | 'http'>() === 'graphql') {
+      const gqlCtx = GqlExecutionContext.create(context).getContext<{ req: Request & { user?: ReqUser } }>();
+      return gqlCtx.req;
+    }
+    return context.switchToHttp().getRequest<Request & { user?: ReqUser }>();
   }
 }
