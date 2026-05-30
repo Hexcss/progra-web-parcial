@@ -10,50 +10,33 @@ services:
     restart: unless-stopped
 
   api:
-    image: node:20-alpine
+    build:
+      context: ./backend/api
+      dockerfile: Dockerfile
     container_name: pw-api
     working_dir: /app
-    user: "node"
     network_mode: host
     volumes:
       - ./backend/api:/app:Z
     environment:
-      NODE_ENV: development
-      LOG_LEVEL: debug
-      PORT: "4000"
+      FLASK_DEBUG: "true"
 
       # CORS + Cliente
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
-      CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
 
-      # MongoDB (now localhost)
+      # MongoDB
       MONGO_URI: mongodb://localhost:27017/portal
+      MONGO_DB_NAME: portal
 
       # JWT
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-me-access}
-      JWT_ACCESS_EXPIRES: ${JWT_ACCESS_EXPIRES:-15m}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh}
-      JWT_REFRESH_EXPIRES: ${JWT_REFRESH_EXPIRES:-7d}
-
-      # OAuth
-      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-id}
-      OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-secret}
-      OAUTH_GOOGLE_REDIRECT_URI: ${OAUTH_GOOGLE_REDIRECT_URI:-http://localhost:4000/auth/oauth/google/callback}
-      OAUTH_GITHUB_CLIENT_ID: ${OAUTH_GITHUB_CLIENT_ID:-id}
-      OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-secret}
-      OAUTH_GITHUB_REDIRECT_URI: ${OAUTH_GITHUB_REDIRECT_URI:-http://localhost:4000/auth/oauth/github/callback}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-access}
+      COOKIE_SECURE: "false"
     depends_on:
       - mongo
     command: >
       sh -c "
-      npx --yes pnpm install &&
-      echo '✅ MongoDB ready, starting API...' &&
-      ( npx pnpm start:dev & ) &&
-      sleep 10 &&
-      echo '🌱 Running seed scripts...' &&
-      npx pnpm seed:admin &&
-      npx pnpm seed:products &&
-      tail -f /dev/null
+      python -m app.seed &&
+      python run.py
       "
     restart: unless-stopped
 

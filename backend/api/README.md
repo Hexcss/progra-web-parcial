@@ -1,130 +1,107 @@
-# 🚀 NestJS Development Cheatsheet
+# Backend Flask - Practica 2
 
-This cheatsheet provides quick reference commands and patterns for working with our NestJS API template.
+Backend migrado a Flask manteniendo el contrato principal del frontend actual. Aunque el prompt inicial proponia SQLite, este proyecto ya usaba MongoDB en NestJS, por lo que la version Python mantiene `MONGO_URI` y usa PyMongo desde repositorios.
 
+## Requisitos
 
+- Python 3.11+
+- MongoDB accesible mediante `MONGO_URI`
+- pip / venv
 
-## 📦 Project Scripts
-
-```bash
-# Start app in dev mode (hot reload)
-pnpm run start:dev
-
-# Build for production
-pnpm run build
-
-# Start built app
-pnpm run start:prod
-
-# Lint code
-pnpm run lint
-
-# Fix lint issues
-pnpm run lint:fix
-
-# Format with Prettier
-pnpm run prettier
-
-# Generate Swagger docs JSON
-pnpm run swagger:export
-```
-
-
-
-## 🛠️ Nest CLI Commands
+## Instalacion
 
 ```bash
-# Generate a new module
-pnpm nest g module feature-name
-
-# Generate a new controller
-pnpm nest g controller feature-name
-
-# Generate a new service
-pnpm nest g service feature-name
-
-# Generate a full resource (CRUD: module, controller, service, DTOs)
-pnpm nest g resource feature-name
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
 ```
 
+## Variables de entorno
 
-
-## 📂 Project Structure
-
-```text
-src/
- ├── app.module.ts             # Root module
- ├── main.ts                   # Bootstrap
- ├── common/                   # Shared utils
- │    ├── logger/              # AppLogger (JSON + pretty dev logs)
- │    ├── pipes/               # ValidationPipe
- │    ├── filters/             # AllExceptionsFilter
- │    ├── interceptors/        # LoggingInterceptor
- │    └── middlewares/         # RequestId middleware
- ├── config/                   # Env validation, GCP/Firebase config
- └── features/                 # Feature-based modules (DDD-style)
-      ├── example/             # ExampleModule (scaffold)
-      └── health/              # HealthModule (readiness/liveness)
+```env
+FLASK_DEBUG=true
+MONGO_URI=mongodb://localhost:27017/portal
+MONGO_DB_NAME=portal
+JWT_SECRET_KEY=change-me-in-production
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+COOKIE_SECURE=false
 ```
 
+Tambien se acepta `JWT_ACCESS_SECRET` para compatibilidad con el `.env` anterior de NestJS.
 
-
-## ✅ Core Features
-
-- **AppLogger** → JSON logs in prod, pretty colored logs in dev.
-- **ValidationPipe** → strict validation, integrates with Zod & class-validator.
-- **AllExceptionsFilter** → consistent error JSON wrapper.
-- **RequestIdMiddleware** → traceability across logs.
-- **Swagger** → auto UI at `/docs` + JSON export to `docs/openapi.json`.
-- **Health Module** → `/health` endpoint for Cloud Run / K8s probes.
-
-
-
-## 🔐 Security & Observability
+## Inicializar datos
 
 ```bash
-# Install rate limiting
-pnpm add @nestjs/throttler
-
-# Install CORS and helmet (already included)
-pnpm add helmet cors
-
-# Add interceptors for logging / metrics
-# Already included: LoggingInterceptor + request IDs
+python -m app.seed
 ```
 
+Crea `admin@example.com/admin123`, `user@example.com/user123`, una categoria, un producto y un descuento demo.
 
-
-## ☁️ GCP Integration
-
-- **Cloud Logging** → logs structured for GCP.
-- **Cloud Run Ready** → Dockerfile + cloudbuild.yaml template.
-- **Request IDs** → integrated into logs for traceability.
-- **Pub/Sub & Firestore** → pluggable providers (extend in `config/`).
-
-
-
-## 🐳 Deployment (Cloud Run)
+## Ejecutar
 
 ```bash
-# Submit build with substitutions
-gcloud builds submit --config cloudbuild.yaml \
-  --substitutions=_SERVICE_NAME=my-api,_REPO_NAME=my-repo,_IMAGE_NAME=my-image,_NODE_ENV=dev
+python run.py
 ```
 
+El backend escucha en `http://localhost:4000`.
 
+## Docker
 
-## 📖 Example Error Response
+Desde `backend/api`:
 
-```json
-{
-  "statusCode": 400,
-  "errors": [
-    "email: must be a valid email",
-    "password: too short"
-  ],
-  "path": "/auth/signup",
-  "timestamp": "2025-09-23T08:12:34.567Z",
-  "requestId": "abc-123"
-}
+```bash
+docker compose up --build
 ```
+
+O desde la raiz del repositorio:
+
+```bash
+docker compose up --build api
+```
+
+El contenedor expone el puerto `4000` en local. En Cloud Run el servicio usa la variable `PORT` que inyecta la plataforma.
+
+## Cloud Build
+
+El archivo `cloudbuild.yaml` esta preparado para ejecutarse desde `backend/api` o desde la rama subtree `backend/api` que genera el workflow del repositorio.
+
+```bash
+gcloud builds submit --config cloudbuild.yaml .
+```
+
+Ajusta las substitutions `_MONGO_URI`, `_JWT_SECRET_KEY`, `_CORS_ORIGINS` y `_RUNTIME_SA` antes de desplegar. Para frontend y API en dominios distintos, el despliegue usa `COOKIE_SAMESITE=None` y `COOKIE_SECURE=true`.
+
+## Contrato
+
+Se mantienen rutas REST principales:
+
+- Auth: `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, `GET /auth/ws-ticket`.
+- Users: `GET/PATCH /users/me`, CRUD admin en `/users`.
+- Products: `GET /products`, `GET /products/top`, `GET /products/:id`, CRUD admin.
+- Categories, discounts, reviews, orders y files con los endpoints descritos en `PROMPT.md`.
+
+El frontend real de este repo usa `/graphql`, asi que tambien hay un adaptador GraphQL compatible con las operaciones existentes (`login`, `register`, `products`, `createProduct`, etc.).
+
+## Arquitectura
+
+- `routes.py`: HTTP, request/response.
+- `service.py`: reglas de negocio.
+- `repository.py`: acceso a MongoDB con PyMongo.
+- `schemas.py`: validacion Marshmallow y serializacion JSON.
+- `common/errors.py`: errores globales con `{ statusCode, errors, path, timestamp, requestId }`.
+
+## Seguridad
+
+- Passwords con Argon2.
+- JWT en cookies HTTP-only `accessToken` y `refreshToken`.
+- Roles `user` y `admin`; 401 para no autenticado y 403 para rol insuficiente.
+- No se serializa `passwordHash`.
+
+## Tests
+
+```bash
+pytest -q
+```
+
+Los tests usan `mongomock://localhost/portal_test`, no la base real.

@@ -1,47 +1,37 @@
-# cloudbuild.yaml — Despliegue del backend API (NestJS) a Cloud Run
+# cloudbuild.yaml - Despliegue del backend API Flask a Cloud Run
 
 substitutions:
-  # ---------------------------------------------------------------------------
-  # 🔧 Servicio e imagen
-  # ---------------------------------------------------------------------------
+  # Servicio e imagen
   _SERVICE_NAME: "portal-api"
   _REGION: "europe-west1"
   _REPO_NAME: "portal"
   _IMAGE_NAME: "api"
   _RUNTIME_SA: "portal-api@${PROJECT_ID}.iam.gserviceaccount.com"
 
-  # ---------------------------------------------------------------------------
-  # 🌍 Entorno de ejecución
-  # ---------------------------------------------------------------------------
-  _NODE_ENV: "production"
-  _LOG_LEVEL: "info"
+  # Runtime Flask
+  _FLASK_DEBUG: "false"
+  _PORT: "8080"
+  _WEB_CONCURRENCY: "2"
+  _WEB_THREADS: "4"
+  _WEB_TIMEOUT: "120"
 
-  # 🔐 JWT
-  _JWT_ACCESS_SECRET: "changeme-access"
-  _JWT_REFRESH_SECRET: "changeme-refresh"
-  _JWT_ACCESS_EXPIRES: "15m"
-  _JWT_REFRESH_EXPIRES: "7d"
-
-  # 🧠 Mongo + OAuth (ajusta con tus valores reales o usa Secret Manager)
+  # MongoDB
   _MONGO_URI: "mongodb+srv://USER:PASS@CLUSTER/portal?retryWrites=true&w=majority"
+  _MONGO_DB_NAME: "portal"
 
-  _OAUTH_GOOGLE_CLIENT_ID: "<GOOGLE_CLIENT_ID>"
-  _OAUTH_GOOGLE_CLIENT_SECRET: "<GOOGLE_CLIENT_SECRET>"
-  _OAUTH_GOOGLE_REDIRECT_URI: "https://portal-api-<region>-<project>.a.run.app/auth/oauth/google/callback"
+  # JWT y cookies
+  _JWT_SECRET_KEY: "changeme-access"
+  _COOKIE_SECURE: "true"
+  _COOKIE_SAMESITE: "None"
 
-  _OAUTH_GITHUB_CLIENT_ID: "<GITHUB_CLIENT_ID>"
-  _OAUTH_GITHUB_CLIENT_SECRET: "<GITHUB_CLIENT_SECRET>"
-  _OAUTH_GITHUB_REDIRECT_URI: "https://portal-api-<region>-<project>.a.run.app/auth/oauth/github/callback"
+  # Frontend / CORS
+  _CORS_ORIGINS: "https://portal-frontend-<region>-<project>.a.run.app"
 
-  # 🔗 Orígenes del frontend (CORS) y URL del cliente
-  _CORS_ORIGIN: "https://portal-frontend-<region>-<project>.a.run.app"
-  _CLIENT_URL: "https://portal-frontend-<region>-<project>.a.run.app"
-
-  _GCS_BUCKET: "bucket-name"
-  _RESEND_API_KEY: "re_...."
+  # Upload local dentro del contenedor. Para produccion real conviene Cloud Storage.
+  _UPLOAD_FOLDER: "/tmp/uploads"
+  _MAX_UPLOAD_MB: "10"
 
 steps:
-  # 🧱 Build de la imagen
   - id: "build"
     name: "gcr.io/cloud-builders/docker"
     args:
@@ -53,7 +43,6 @@ steps:
         "."
       ]
 
-  # 📤 Push de ambas etiquetas (sha + latest)
   - id: "push-sha"
     name: "gcr.io/cloud-builders/docker"
     args: ["push", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:$COMMIT_SHA"]
@@ -64,7 +53,6 @@ steps:
     args: ["push", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:latest"]
     waitFor: ["build"]
 
-  # 🚀 Despliegue en Cloud Run
   - id: "deploy"
     name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
     entrypoint: "gcloud"
@@ -80,8 +68,9 @@ steps:
         "--cpu","1",
         "--memory","512Mi",
         "--timeout","300",
+        "--port","${_PORT}",
         "--update-env-vars",
-        "NODE_ENV=${_NODE_ENV},LOG_LEVEL=${_LOG_LEVEL},MONGO_URI=${_MONGO_URI},CORS_ORIGIN=${_CORS_ORIGIN},CLIENT_URL=${_CLIENT_URL},JWT_ACCESS_SECRET=${_JWT_ACCESS_SECRET},JWT_REFRESH_SECRET=${_JWT_REFRESH_SECRET},JWT_ACCESS_EXPIRES=${_JWT_ACCESS_EXPIRES},JWT_REFRESH_EXPIRES=${_JWT_REFRESH_EXPIRES},OAUTH_GOOGLE_CLIENT_ID=${_OAUTH_GOOGLE_CLIENT_ID},OAUTH_GOOGLE_CLIENT_SECRET=${_OAUTH_GOOGLE_CLIENT_SECRET},OAUTH_GOOGLE_REDIRECT_URI=${_OAUTH_GOOGLE_REDIRECT_URI},OAUTH_GITHUB_CLIENT_ID=${_OAUTH_GITHUB_CLIENT_ID},OAUTH_GITHUB_CLIENT_SECRET=${_OAUTH_GITHUB_CLIENT_SECRET},OAUTH_GITHUB_REDIRECT_URI=${_OAUTH_GITHUB_REDIRECT_URI},GCS_BUCKET=${_GCS_BUCKET},RESEND_API_KEY=${_RESEND_API_KEY}"
+        "FLASK_DEBUG=${_FLASK_DEBUG},PORT=${_PORT},WEB_CONCURRENCY=${_WEB_CONCURRENCY},WEB_THREADS=${_WEB_THREADS},WEB_TIMEOUT=${_WEB_TIMEOUT},MONGO_URI=${_MONGO_URI},MONGO_DB_NAME=${_MONGO_DB_NAME},JWT_SECRET_KEY=${_JWT_SECRET_KEY},COOKIE_SECURE=${_COOKIE_SECURE},COOKIE_SAMESITE=${_COOKIE_SAMESITE},CORS_ORIGINS=${_CORS_ORIGINS},UPLOAD_FOLDER=${_UPLOAD_FOLDER},MAX_UPLOAD_MB=${_MAX_UPLOAD_MB}"
       ]
     waitFor: ["push-sha","push-latest"]
 
@@ -91,3 +80,4 @@ options:
 images:
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:$COMMIT_SHA"
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:latest"
+
