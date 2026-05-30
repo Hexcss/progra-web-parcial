@@ -1,37 +1,33 @@
 # -------------------
-# Stage 1: Builder
+# Backend Flask API
 # -------------------
-FROM node:22-alpine AS builder
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=4000
 
 WORKDIR /app
 
-# Install deps
-COPY package.json pnpm-lock.yaml* ./
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy source
-COPY tsconfig*.json ./
-COPY src ./src
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Build
-RUN pnpm build
+COPY app ./app
+COPY run.py ./
+COPY .env.example ./
 
-# -------------------
-# Stage 2: Runner
-# -------------------
-FROM node:22-alpine
+RUN mkdir -p /app/uploads \
+    && addgroup --system app \
+    && adduser --system --ingroup app app \
+    && chown -R app:app /app
 
-WORKDIR /app
-
-# Copy only what’s needed
-COPY package.json pnpm-lock.yaml* ./
-RUN npm install -g pnpm && pnpm install --prod --frozen-lockfile
-
-COPY --from=builder /app/dist ./dist
-
-# Create non-root user
-RUN addgroup -S app && adduser -S app -G app
 USER app
 
-EXPOSE 3000
-CMD ["node", "dist/main.js"]
+EXPOSE 4000
+
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-4000} --workers ${WEB_CONCURRENCY:-2} --threads ${WEB_THREADS:-4} --timeout ${WEB_TIMEOUT:-120} run:app"]
+

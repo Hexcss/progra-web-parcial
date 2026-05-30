@@ -1,13 +1,43 @@
 services:
+  mongo:
+    image: mongo:7
+    container_name: portal-api-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: portal
+    restart: unless-stopped
+
   api:
     build: .
-    container_name: api
+    container_name: portal-api
     ports:
-      - "3000:3000"
+      - "4000:4000"
     environment:
-      NODE_ENV: development
-      PORT: 3000
+      FLASK_DEBUG: "true"
+      PORT: "4000"
+      MONGO_URI: mongodb://mongo:27017/portal
+      MONGO_DB_NAME: portal
+      JWT_SECRET_KEY: change-me-access
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+      COOKIE_SECURE: "false"
+      COOKIE_SAMESITE: Lax
+      UPLOAD_FOLDER: /app/uploads
     volumes:
       - .:/app
-      - /app/node_modules
-    command: pnpm start:dev
+      - uploads:/app/uploads
+    depends_on:
+      - mongo
+    command: >
+      sh -c "
+      python -m app.seed &&
+      python run.py
+      "
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+  uploads:
+
