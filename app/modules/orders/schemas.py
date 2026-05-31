@@ -26,6 +26,7 @@ def order_to_dict(order):
         "status": order.get("status"),
         "createdAt": iso(order.get("createdAt")),
         "updatedAt": iso(order.get("updatedAt")),
+        "emailStatus": order.get("emailStatus"),
     }
 
 

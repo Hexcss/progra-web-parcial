@@ -1,13 +1,11 @@
 import json
-import os
 import re
-from uuid import uuid4
 
-from flask import Blueprint, current_app, jsonify, request
-from werkzeug.utils import secure_filename
+from flask import Blueprint, jsonify, request
 
 from ...common.auth import clear_auth_cookies, current_user_from_request, require_role, set_auth_cookies
 from ...common.errors import BadRequestError
+from ...common.storage import FileStorageService
 from ..auth.schemas import LoginSchema, RegisterSchema
 from ..auth.service import AuthService
 from ..categories.schemas import CreateCategorySchema, UpdateCategorySchema
@@ -87,25 +85,6 @@ def _op(query: str) -> str:
     raise BadRequestError("Unsupported GraphQL operation")
 
 
-def _save_upload(file, folder=None):
-    safe_name = secure_filename(file.filename or "upload")
-    prefix = secure_filename(folder or "")
-    stored = f"{uuid4()}-{safe_name}"
-    if prefix:
-        stored = f"{prefix}/{stored}"
-    target_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], os.path.dirname(stored))
-    os.makedirs(target_dir, exist_ok=True)
-    path = os.path.join(current_app.config["UPLOAD_FOLDER"], stored)
-    file.save(path)
-    return {
-        "url": request.host_url.rstrip("/") + "/uploads/" + stored,
-        "key": stored,
-        "filename": safe_name,
-        "size": os.path.getsize(path),
-        "mimeType": file.mimetype or "application/octet-stream",
-    }
-
-
 @bp.post("")
 @bp.post("/")
 def graphql():
@@ -133,14 +112,15 @@ def _graphql_upload():
     file = request.files.get("0")
     if not file:
         raise BadRequestError("File is required")
-    current_user_from_request(required=True)
-    return jsonify({"data": {"uploadFile": _save_upload(file, variables.get("folder"))}})
+    user = current_user_from_request(required=True)
+    return jsonify({"data": {"uploadFile": FileStorageService().upload(file, user_id=user["sub"], folder=variables.get("folder"))}})
 
 
 def _execute(name: str, variables: dict):
     if name == "Register":
         user, tokens = auth_service.register(RegisterSchema().load(variables.get("input") or {}))
-        return {"register": {"user": user_out.dump(user), "verificationEmail": auth_service.verification_email_status()}, "__tokens": tokens}
+        verification = auth_service.maybe_send_email_verification(user, _server_origin())
+        return {"register": {"user": user_out.dump(user), "verificationEmail": verification}, "__tokens": tokens}
     if name == "Login":
         user, tokens = auth_service.login(LoginSchema().load(variables.get("input") or {}))
         return {"login": {"user": user_out.dump(user)}, "__tokens": tokens}
@@ -280,12 +260,14 @@ def _execute(name: str, variables: dict):
     if name == "DeleteFile":
         current_user_from_request(required=True)
         url = variables.get("url")
-        filename = (url or "").rstrip("/").split("/")[-1]
-        path = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
-        if os.path.exists(path):
-            os.remove(path)
-        return {"deleteFile": {"success": True}}
+        return {"deleteFile": FileStorageService().delete_by_url(url)}
     if name == "FileName":
-        return {"fileName": {"filename": (variables.get("url") or "").rstrip("/").split("/")[-1]}}
+        return {"fileName": {"filename": FileStorageService().filename_from_url(variables.get("url") or "")}}
 
     raise BadRequestError("Unsupported GraphQL operation")
+
+
+def _server_origin():
+    proto = request.headers.get("x-forwarded-proto") or request.scheme or "http"
+    host = request.headers.get("x-forwarded-host") or request.host
+    return f"{proto}://{host}"

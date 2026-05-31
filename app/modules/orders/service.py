@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from ...common.email import EmailService
 from ...common.errors import BadRequestError, ForbiddenError, NotFoundError
 from ..discounts.repository import DiscountRepository
 from ..products.repository import ProductRepository
@@ -12,6 +13,7 @@ class OrderService:
         self.repo = OrderRepository()
         self.products = ProductRepository()
         self.discounts = DiscountRepository()
+        self.email = EmailService()
 
     def get_model(self, order_id: str) -> dict:
         order = self.repo.find_by_id(order_id)
@@ -67,9 +69,11 @@ class OrderService:
             "currency": data.get("currency") or "USD",
             "status": "created",
         }
-        return order_to_dict(self.repo.insert(order))
+        inserted = self.repo.insert(order)
+        email_status = self.email.send_order_confirmation(inserted)
+        updated = self.repo.update(str(inserted["_id"]), {"emailStatus": email_status})
+        return order_to_dict(updated)
 
     def update_status(self, order_id: str, data: dict):
         self.get_model(order_id)
         return order_to_dict(self.repo.update(order_id, {"status": data["status"]}))
-

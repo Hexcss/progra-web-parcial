@@ -10,6 +10,7 @@ substitutions:
 
   # Runtime Flask
   _FLASK_DEBUG: "false"
+  _NODE_ENV: "production"
   _PORT: "8080"
   _WEB_CONCURRENCY: "2"
   _WEB_THREADS: "4"
@@ -20,16 +21,30 @@ substitutions:
   _MONGO_DB_NAME: "portal"
 
   # JWT y cookies
-  _JWT_SECRET_KEY: "changeme-access"
+  _JWT_ACCESS_SECRET: "changeme-access"
+  _JWT_REFRESH_SECRET: "changeme-refresh"
   _COOKIE_SECURE: "true"
   _COOKIE_SAMESITE: "None"
 
   # Frontend / CORS
+  _CLIENT_URL: "https://portal-frontend-<region>-<project>.a.run.app"
+  _CORS_ORIGIN: "https://portal-frontend-<region>-<project>.a.run.app"
   _CORS_ORIGINS: "https://portal-frontend-<region>-<project>.a.run.app"
 
-  # Upload local dentro del contenedor. Para produccion real conviene Cloud Storage.
+  # GCS + Resend
+  _GCS_BUCKET: "bucket-name"
+  _RESEND_API_KEY: "re_...."
+  _EMAIL_FROM: "Market <no-reply@hexcss.com>"
   _UPLOAD_FOLDER: "/tmp/uploads"
   _MAX_UPLOAD_MB: "10"
+
+  # OAuth
+  _OAUTH_GOOGLE_CLIENT_ID: "<GOOGLE_CLIENT_ID>"
+  _OAUTH_GOOGLE_CLIENT_SECRET: "<GOOGLE_CLIENT_SECRET>"
+  _OAUTH_GOOGLE_REDIRECT_URI: "https://portal-api-<region>-<project>.a.run.app/auth/oauth/google/callback"
+  _OAUTH_GITHUB_CLIENT_ID: "<GITHUB_CLIENT_ID>"
+  _OAUTH_GITHUB_CLIENT_SECRET: "<GITHUB_CLIENT_SECRET>"
+  _OAUTH_GITHUB_REDIRECT_URI: "https://portal-api-<region>-<project>.a.run.app/auth/oauth/github/callback"
 
 steps:
   - id: "build"
@@ -70,7 +85,7 @@ steps:
         "--timeout","300",
         "--port","${_PORT}",
         "--update-env-vars",
-        "FLASK_DEBUG=${_FLASK_DEBUG},PORT=${_PORT},WEB_CONCURRENCY=${_WEB_CONCURRENCY},WEB_THREADS=${_WEB_THREADS},WEB_TIMEOUT=${_WEB_TIMEOUT},MONGO_URI=${_MONGO_URI},MONGO_DB_NAME=${_MONGO_DB_NAME},JWT_SECRET_KEY=${_JWT_SECRET_KEY},COOKIE_SECURE=${_COOKIE_SECURE},COOKIE_SAMESITE=${_COOKIE_SAMESITE},CORS_ORIGINS=${_CORS_ORIGINS},UPLOAD_FOLDER=${_UPLOAD_FOLDER},MAX_UPLOAD_MB=${_MAX_UPLOAD_MB}"
+        "FLASK_DEBUG=${_FLASK_DEBUG},NODE_ENV=${_NODE_ENV},PORT=${_PORT},WEB_CONCURRENCY=${_WEB_CONCURRENCY},WEB_THREADS=${_WEB_THREADS},WEB_TIMEOUT=${_WEB_TIMEOUT},MONGO_URI=${_MONGO_URI},MONGO_DB_NAME=${_MONGO_DB_NAME},JWT_ACCESS_SECRET=${_JWT_ACCESS_SECRET},JWT_REFRESH_SECRET=${_JWT_REFRESH_SECRET},COOKIE_SECURE=${_COOKIE_SECURE},COOKIE_SAMESITE=${_COOKIE_SAMESITE},CLIENT_URL=${_CLIENT_URL},CORS_ORIGIN=${_CORS_ORIGIN},CORS_ORIGINS=${_CORS_ORIGINS},GCS_BUCKET=${_GCS_BUCKET},STORAGE_BUCKET=${_GCS_BUCKET},RESEND_API_KEY=${_RESEND_API_KEY},EMAIL_FROM=${_EMAIL_FROM},UPLOAD_FOLDER=${_UPLOAD_FOLDER},MAX_UPLOAD_MB=${_MAX_UPLOAD_MB},OAUTH_GOOGLE_CLIENT_ID=${_OAUTH_GOOGLE_CLIENT_ID},OAUTH_GOOGLE_CLIENT_SECRET=${_OAUTH_GOOGLE_CLIENT_SECRET},OAUTH_GOOGLE_REDIRECT_URI=${_OAUTH_GOOGLE_REDIRECT_URI},OAUTH_GITHUB_CLIENT_ID=${_OAUTH_GITHUB_CLIENT_ID},OAUTH_GITHUB_CLIENT_SECRET=${_OAUTH_GITHUB_CLIENT_SECRET},OAUTH_GITHUB_REDIRECT_URI=${_OAUTH_GITHUB_REDIRECT_URI}"
       ]
     waitFor: ["push-sha","push-latest"]
 
@@ -80,4 +95,3 @@ options:
 images:
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:$COMMIT_SHA"
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_IMAGE_NAME}:latest"
-
