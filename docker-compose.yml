@@ -20,17 +20,32 @@ services:
       - ./backend/api:/app:Z
     environment:
       FLASK_DEBUG: "true"
+      NODE_ENV: development
 
       # CORS + Cliente
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
 
       # MongoDB
       MONGO_URI: mongodb://localhost:27017/portal
       MONGO_DB_NAME: portal
 
       # JWT
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-access}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-me-access}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh}
       COOKIE_SECURE: "false"
+
+      # GCS + Resend + OAuth
+      GCS_BUCKET: ${GCS_BUCKET:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Market <no-reply@hexcss.com>}
+      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
+      OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-}
+      OAUTH_GOOGLE_REDIRECT_URI: ${OAUTH_GOOGLE_REDIRECT_URI:-http://localhost:4000/auth/oauth/google/callback}
+      OAUTH_GITHUB_CLIENT_ID: ${OAUTH_GITHUB_CLIENT_ID:-}
+      OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-}
+      OAUTH_GITHUB_REDIRECT_URI: ${OAUTH_GITHUB_REDIRECT_URI:-http://localhost:4000/auth/oauth/github/callback}
     depends_on:
       - mongo
     command: >

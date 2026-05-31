@@ -17,14 +17,27 @@ services:
       - "4000:4000"
     environment:
       FLASK_DEBUG: "true"
+      NODE_ENV: development
       PORT: "4000"
       MONGO_URI: mongodb://mongo:27017/portal
       MONGO_DB_NAME: portal
-      JWT_SECRET_KEY: change-me-access
+      JWT_ACCESS_SECRET: change-me-access
+      JWT_REFRESH_SECRET: change-me-refresh
       CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+      CORS_ORIGIN: http://localhost:5173
+      CLIENT_URL: http://localhost:5173
       COOKIE_SECURE: "false"
       COOKIE_SAMESITE: Lax
       UPLOAD_FOLDER: /app/uploads
+      GCS_BUCKET: ${GCS_BUCKET:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Market <no-reply@hexcss.com>}
+      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
+      OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-}
+      OAUTH_GOOGLE_REDIRECT_URI: http://localhost:4000/auth/oauth/google/callback
+      OAUTH_GITHUB_CLIENT_ID: ${OAUTH_GITHUB_CLIENT_ID:-}
+      OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-}
+      OAUTH_GITHUB_REDIRECT_URI: http://localhost:4000/auth/oauth/github/callback
     volumes:
       - .:/app
       - uploads:/app/uploads
@@ -40,4 +53,3 @@ services:
 volumes:
   mongo-data:
   uploads:
-

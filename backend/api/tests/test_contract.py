@@ -86,3 +86,14 @@ def test_graphql_contract(client, app):
     )
     assert product.status_code == 200
     assert product.json["data"]["createProduct"]["name"] == "Mouse"
+
+
+def test_oauth_google_start_redirect_sets_state(client, app):
+    app.config["OAUTH_GOOGLE_CLIENT_ID"] = "google-client-id"
+    app.config["OAUTH_GOOGLE_REDIRECT_URI"] = "http://localhost:4000/auth/oauth/google/callback"
+    res = client.get("/auth/oauth/google/start?intent=signup&redirect=/market")
+    assert res.status_code == 302
+    assert "accounts.google.com" in res.headers["Location"]
+    cookies = res.headers.getlist("Set-Cookie")
+    assert any(cookie.startswith("oauth_state=") for cookie in cookies)
+    assert any(cookie.startswith("oauth_intent=signup") for cookie in cookies)

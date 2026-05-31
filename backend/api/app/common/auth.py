@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 
+import jwt as pyjwt
 from flask import current_app, g, jsonify, request
-from flask_jwt_extended import create_access_token, create_refresh_token, decode_token, get_jwt, verify_jwt_in_request
+from flask_jwt_extended import create_access_token, get_jwt, verify_jwt_in_request
 from flask_jwt_extended.exceptions import JWTExtendedException
 from jwt import ExpiredSignatureError, InvalidTokenError
 
@@ -21,8 +23,17 @@ def create_tokens(user):
     identity = str(user["_id"])
     return (
         create_access_token(identity=identity, additional_claims=claims),
-        create_refresh_token(identity=identity, additional_claims=claims),
+        _create_refresh_token(identity, claims),
     )
+
+
+def _create_refresh_token(identity: str, claims: dict):
+    payload = {
+        "sub": identity,
+        **claims,
+        "exp": datetime.now(timezone.utc) + timedelta(seconds=current_app.config["JWT_REFRESH_MAX_AGE_SECONDS"]),
+    }
+    return pyjwt.encode(payload, current_app.config["JWT_REFRESH_SECRET"], algorithm="HS256")
 
 
 def set_auth_cookies(response, access_token: str, refresh_token: str):
@@ -80,14 +91,14 @@ def _refresh_from_cookie(required: bool) -> dict | None:
             raise UnauthorizedError("Authentication required")
         return None
     try:
-        claims = decode_token(refresh_token)
+        claims = pyjwt.decode(refresh_token, current_app.config["JWT_REFRESH_SECRET"], algorithms=["HS256"])
         user = _claims_to_current(claims)
         access, refresh = create_access_token(
             identity=user["sub"],
             additional_claims={k: user[k] for k in ("email", "role", "emailVerified")},
-        ), create_refresh_token(
-            identity=user["sub"],
-            additional_claims={k: user[k] for k in ("email", "role", "emailVerified")},
+        ), _create_refresh_token(
+            user["sub"],
+            {k: user[k] for k in ("email", "role", "emailVerified")},
         )
         g.current_user = user
         g.new_auth_tokens = (access, refresh)
